@@ -1,0 +1,947 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useApp } from '../../context/AppContext';
+import { getFilteredSales, getFilteredMarketing } from '../../utils/filters';
+import { calculateMetrics, groupSalesByTag } from '../../utils/calculations';
+import { formatDateBR, formatCurrency, calculateLeadTime } from '../../utils/formatters';
+import { analyzeDataWithAI } from '../../services/geminiService';
+import { addMarketing as apiAddMarketing } from '../../services/apiService';
+import { exportAIReport } from '../../services/pdfService';
+import { marked } from 'marked';
+import Chart from 'chart.js/auto';
+import Modal from '../common/Modal';
+import CustomDropdown from '../common/CustomDropdown';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+
+function generateEvolutionData(filteredSales, marketing, filters) {
+    const { period, filterStart, filterEnd, filterLocation, filterCampaignObjective } = filters;
+    const map = new Map();
+    const isYearOrAll = period === 'year' || period === 'all' || period === 'custom';
+    
+    let groupBy = isYearOrAll ? 'month' : 'day';
+    if (period === 'custom' && filterStart && filterEnd) {
+        const d1 = new Date(filterStart);
+        const d2 = new Date(filterEnd);
+        if ((d2 - d1) / (1000 * 60 * 60 * 24) <= 31) groupBy = 'day';
+    }
+
+    const getFormatKey = (dStr) => {
+        let d = dStr;
+        if (d && d.includes('T')) d = d.split('T')[0];
+        if (!d) return null;
+        const parts = d.split('-');
+        if (parts.length < 3) return null;
+        if (groupBy === 'month') return `${parts[0]}-${parts[1]}`;
+        return `${parts[0]}-${parts[1]}-${parts[2]}`;
+    };
+
+    const formatLabel = (key) => {
+        if (!key) return '';
+        const parts = key.split('-');
+        if (groupBy === 'month') {
+            const date = new Date(parts[0], parts[1] - 1, 1);
+            return date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+        }
+        const date = new Date(parts[0], parts[1] - 1, parts[2], 12);
+        return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    };
+
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    
+    if (marketing) {
+        marketing.forEach(m => {
+            let passLoc = true;
+            let investmentToAdd = m.investment || 0;
+            let leadsToAdd = m.leads || 0;
+
+            if (filterLocation) {
+                if (m.location === 'Ambos') {
+                    investmentToAdd = investmentToAdd / 2;
+                    leadsToAdd = leadsToAdd / 2;
+                } else if (m.location !== filterLocation) {
+                    passLoc = false;
+                }
+            }
+
+            let isEngajamento = false;
+            const compName = m.metaCampaignName || m.campaignName || '';
+            if (compName) {
+                const lower = compName.toLowerCase();
+                if (lower.includes('engajamento') || lower.includes('visualização') || lower.includes('seguidores')) {
+                    isEngajamento = true;
+                }
+            }
+            let passObj = true;
+            if (filterCampaignObjective === 'vendas' && isEngajamento) passObj = false;
+            if (filterCampaignObjective === 'engajamento' && !isEngajamento) passObj = false;
+
+            const investStart = new Date(m.startDate + 'T00:00:00');
+            const investEnd = m.endDate ? new Date(m.endDate + 'T23:59:59') : new Date(m.startDate + 'T23:59:59');
+            let passDate = true;
+            if (period === 'today') passDate = investStart <= today && investEnd >= today;
+            else if (period === 'week') {
+                const f = new Date(today);
+                f.setDate(today.getDate() - today.getDay());
+                f.setHours(0, 0, 0, 0);
+                passDate = investEnd >= f && investStart <= today;
+            } else if (period === 'month') {
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
+                passDate = investEnd >= monthStart && investStart <= today;
+            } else if (period === 'last_month') {
+                const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1, 0, 0, 0);
+                const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
+                passDate = investEnd >= lastMonthStart && investStart <= lastMonthEnd;
+            } else if (period === 'year') {
+                const yearStart = new Date(today.getFullYear(), 0, 1, 0, 0, 0);
+                passDate = investEnd >= yearStart && investStart <= today;
+            } else if (period === 'custom' && filterStart && filterEnd) {
+                const s = new Date(filterStart + 'T00:00:00');
+                const e = new Date(filterEnd + 'T23:59:59');
+                passDate = investEnd >= s && investStart <= e;
+            }
+
+            if (passLoc && passObj && passDate) {
+                let days = 1;
+                if (groupBy === 'day' && m.endDate && m.endDate !== m.startDate) {
+                    const s = new Date(m.startDate + 'T12:00:00');
+                    const e = new Date(m.endDate + 'T12:00:00');
+                    days = Math.max(1, Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1);
+                }
+
+                const valPerDayInvest = investmentToAdd / days;
+                const valPerDayLeads = leadsToAdd / days;
+
+                for (let i = 0; i < days; i++) {
+                    let currentD = new Date(m.startDate + 'T12:00:00');
+                    currentD.setDate(currentD.getDate() + i);
+                    const dStr = currentD.toISOString().split('T')[0];
+                    const key = getFormatKey(dStr);
+                    
+                    if (!key) continue;
+                    if (!map.has(key)) map.set(key, { key, leads: 0, invest: 0, consultas: 0, faturamento: 0 });
+                    const entry = map.get(key);
+                    entry.leads += valPerDayLeads;
+                    entry.invest += valPerDayInvest;
+                }
+            }
+        });
+    }
+
+    if (filteredSales) {
+        filteredSales.forEach(s => {
+            const key = getFormatKey(s.date);
+            if (!key) return;
+            if (!map.has(key)) map.set(key, { key, leads: 0, invest: 0, consultas: 0, faturamento: 0 });
+            const entry = map.get(key);
+            
+            if (s.type === 'Consulta') {
+                entry.consultas += 1;
+                entry.faturamento += parseFloat(s.value) || 0;
+            } else if (s.type === 'Procedimento') {
+                entry.faturamento += parseFloat(s.value) || 0;
+            }
+        });
+    }
+
+    const data = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
+    
+    return data.map(d => ({
+        label: formatLabel(d.key),
+        CPL: d.leads > 0 ? d.invest / d.leads : 0,
+        Consultas: d.consultas,
+        Faturamento: d.faturamento
+    }));
+}
+
+function FunnelCard({ title, icon, borderColor, iconColor, bgHeaderClass, leads, invest, cpl, cons, realCons, procs, revenueProc, revenueCons = 0, hideLeads }) {
+    const convLeadCons = leads > 0 ? (cons / leads) * 100 : 0;
+    const convConsProc = realCons > 0 ? (procs / realCons) * 100 : 0;
+    const cpaCons = cons > 0 ? invest / cons : 0;
+    const cpaProc = procs > 0 ? invest / procs : 0;
+    const ticketMedio = procs > 0 ? revenueProc / procs : 0;
+    const totalRevenue = revenueProc + revenueCons;
+    const roas = invest > 0 ? totalRevenue / invest : 0;
+    
+    return (
+        <div className={`glass-panel p-4 rounded-xl border-t-4 ${borderColor} ${bgHeaderClass} flex flex-col gap-2 relative shadow-lg`}>
+            <h4 className={`text-xs font-bold ${iconColor} uppercase flex items-center gap-1.5 mb-2`}>
+                {icon} {title}
+            </h4>
+            
+            {!hideLeads && (
+                <>
+                    <div className="bg-black/40 p-3 rounded-lg border border-white/10">
+                        <div className="flex justify-between items-end mb-1">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">1. Leads</p>
+                            <span className="text-[10px] text-gray-500 font-mono">CPL: {formatCurrency(cpl)}</span>
+                        </div>
+                        <div className="flex justify-between items-end">
+                            <h4 className="text-2xl font-bold text-white font-mono">{leads}</h4>
+                            {invest > 0 && (
+                                <span className="text-[9px] text-gray-400 font-mono bg-gray-800/50 px-2 py-0.5 rounded border border-gray-700/50">
+                                    Inv: {formatCurrency(invest)}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-center -my-3 relative z-10">
+                        <span className={`bg-gray-900 border border-gray-700 text-[10px] px-3 py-1 rounded-full ${iconColor} flex items-center gap-1 font-bold shadow-md`}>
+                            <i className="ph-bold ph-arrow-down"></i> {convLeadCons.toFixed(1)}%
+                        </span>
+                    </div>
+                </>
+            )}
+
+            <div className="bg-black/40 p-3 rounded-lg border border-white/10">
+                <div className="flex justify-between items-end mb-1">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">2. Consultas</p>
+                    <span className="text-[10px] text-gray-500 font-mono">CPA: {formatCurrency(cpaCons)}</span>
+                </div>
+                <h4 className="text-2xl font-bold text-white font-mono">{cons} <span className="text-xs text-gray-500 font-normal">({realCons} Realiz.)</span></h4>
+            </div>
+
+            <div className="flex justify-center -my-3 relative z-10">
+                <span className={`bg-gray-900 border border-gray-700 text-[10px] px-3 py-1 rounded-full ${iconColor} flex items-center gap-1 font-bold shadow-md`}>
+                    <i className="ph-bold ph-arrow-down"></i> {convConsProc.toFixed(1)}%
+                </span>
+            </div>
+
+            <div className="bg-black/40 p-3 rounded-lg border border-white/10">
+                <div className="flex justify-between items-end mb-1">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">3. Procedimentos</p>
+                    <span className="text-[10px] text-gray-500 font-mono">CPA: {formatCurrency(cpaProc)}</span>
+                </div>
+                <h4 className="text-2xl font-bold text-white font-mono">{procs}</h4>
+            </div>
+
+            <div className="flex justify-center -my-3 relative z-10">
+                <span className={`bg-gray-900 border border-gray-700 text-[9px] px-3 py-1 rounded-full ${iconColor} flex items-center gap-1 font-bold shadow-md`}>
+                    <i className="ph-bold ph-arrow-down"></i> Ticket Médio: {formatCurrency(ticketMedio)}
+                </span>
+            </div>
+
+            <div className="bg-black/40 p-3 rounded-lg border border-emerald-900/30 bg-gradient-to-br from-emerald-950/10 to-transparent">
+                <div className="flex justify-between items-end mb-1">
+                    <p className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">4. Faturamento</p>
+                    <span className="text-[10px] text-gray-500 font-mono">ROAS: <span className="text-emerald-400 font-bold">{roas.toFixed(1)}x</span></span>
+                </div>
+                <h4 className="text-2xl font-bold text-emerald-400 font-mono">{formatCurrency(totalRevenue)}</h4>
+            </div>
+        </div>
+    );
+}
+
+export default function AnalyticsTab() {
+    const { state, dispatch, showToast, getAllCreatives } = useApp();
+    const { sales, marketing, history, publics, procedures } = state;
+
+    // Filters
+    const [period, setPeriod] = useState('month');
+    const [filterStart, setFilterStart] = useState('');
+    const [filterEnd, setFilterEnd] = useState('');
+    const [filterType, setFilterType] = useState('all');
+    const [activeTypeFilter, setActiveTypeFilter] = useState('all');
+    const [filterPublic, setFilterPublic] = useState('');
+    const [filterProc, setFilterProc] = useState('');
+    const [filterSeller, setFilterSeller] = useState('');
+    const [filterSource, setFilterSource] = useState('');
+    const [filterLocation, setFilterLocation] = useState('');
+    const [selectedCreativeFilter, setSelectedCreativeFilter] = useState('');
+    const [filterCampaignObjective, setFilterCampaignObjective] = useState('all');
+    const [filtersOpen, setFiltersOpen] = useState(true);
+
+    // UI toggles
+    const [performanceOpen, setPerformanceOpen] = useState(true);
+    const [logOpen, setLogOpen] = useState(false);
+
+    // AI
+    const [aiHTML, setAiHTML] = useState('');
+    const [showAI, setShowAI] = useState(false);
+    const [analyzingAI, setAnalyzingAI] = useState(false);
+
+    // Marketing Modal
+    const [showMktModal, setShowMktModal] = useState(false);
+    const [mktStartDate, setMktStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [mktEndDate, setMktEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [mktCampaign, setMktCampaign] = useState('Homem');
+    const [mktLocation, setMktLocation] = useState('Cabo Frio');
+    const [mktInvestment, setMktInvestment] = useState('');
+    const [mktPlatform, setMktPlatform] = useState('Meta Ads');
+    const [mktLeads, setMktLeads] = useState('');
+    const [savingMkt, setSavingMkt] = useState(false);
+
+    // Details Modal
+    const [detailsTag, setDetailsTag] = useState(null);
+
+
+    // Chart refs
+    const revenueChartRef = useRef(null);
+    const sourceChartRef = useRef(null);
+    const tagsChartRef = useRef(null);
+    const mktPieRef = useRef(null);
+    const chartInstances = useRef({});
+
+    // Compute filtered data
+    const filters = { period, filterStart, filterEnd, filterType, activeTypeFilter, filterPublic, filterProc, filterSeller, filterSource, filterLocation, selectedCreativeFilter, filterCampaignObjective };
+    const filteredSales = getFilteredSales(sales, filters, history, publics, procedures);
+    const mktData = getFilteredMarketing(marketing, period, filterStart, filterEnd, filterLocation, filterCampaignObjective);
+    const periodLabel = period === 'month' ? 'Este Mês' : period === 'last_month' ? 'Mês Anterior' : period === 'year' ? 'Este Ano' : period === 'today' ? 'Hoje' : period === 'week' ? 'Esta Semana' : period === 'all' ? 'Todo o Período' : 'Personalizado';
+    const metrics = calculateMetrics(filteredSales, mktData, periodLabel);
+    const grouped = groupSalesByTag(filteredSales, history);
+    const evolutionData = generateEvolutionData(filteredSales, marketing, filters);
+
+
+    // Chart rendering
+    const renderCharts = useCallback(() => {
+        // Destroy old charts
+        Object.values(chartInstances.current).forEach(c => { if (c instanceof Chart) c.destroy(); });
+        chartInstances.current = {};
+
+        // Revenue Chart
+        if (revenueChartRef.current) {
+            const sortedDates = Object.keys(metrics.dailyRevenue).sort();
+            chartInstances.current.revenue = new Chart(revenueChartRef.current.getContext('2d'), {
+                type: 'line',
+                data: { labels: sortedDates.map(d => formatDateBR(d)), datasets: [{ label: 'Vendas', data: sortedDates.map(d => metrics.dailyRevenue[d]), borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, tension: 0.4, fill: true, pointRadius: 0, pointHoverRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+            });
+        }
+
+        // Source Chart
+        if (sourceChartRef.current) {
+            chartInstances.current.source = new Chart(sourceChartRef.current.getContext('2d'), {
+                type: 'doughnut',
+                data: { labels: Object.keys(metrics.sourceStats), datasets: [{ data: Object.values(metrics.sourceStats), backgroundColor: ['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#6366f1'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#9ca3af', font: { size: 10 } } }, tooltip: { callbacks: { label: ctx => formatCurrency(ctx.raw) } } } }
+            });
+        }
+
+        // Tags Chart
+        if (tagsChartRef.current) {
+            const top5 = Object.keys(grouped).sort((a, b) => grouped[b].value - grouped[a].value).slice(0, 5);
+            chartInstances.current.tags = new Chart(tagsChartRef.current.getContext('2d'), {
+                type: 'bar',
+                data: { labels: top5, datasets: [{ label: 'Faturamento', data: top5.map(t => grouped[t].value), backgroundColor: 'rgba(59, 130, 246, 0.8)', borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 45, minRotation: 45 } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => formatCurrency(ctx.raw) } } } }
+            });
+        }
+
+        // Marketing Pie
+        if (mktPieRef.current && (metrics.metaInvestReal > 0 || metrics.googleInvestReal > 0)) {
+            chartInstances.current.mktPie = new Chart(mktPieRef.current.getContext('2d'), {
+                type: 'doughnut',
+                data: { labels: ['Meta Ads', 'Google Ads'], datasets: [{ data: [metrics.metaInvestReal, metrics.googleInvestReal], backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(249, 115, 22, 0.8)'], borderColor: ['#3b82f6', '#f97316'], borderWidth: 1, hoverOffset: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => formatCurrency(ctx.raw) } } } }
+            });
+        }
+    }, [metrics, grouped]);
+
+    useEffect(() => {
+        const timer = setTimeout(renderCharts, 100);
+        return () => clearTimeout(timer);
+    }, [renderCharts]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            Object.values(chartInstances.current).forEach(c => { if (c instanceof Chart) c.destroy(); });
+        };
+    }, []);
+
+    function filterByType(type) {
+        setActiveTypeFilter(type);
+        if (type === 'all') setFilterType('all');
+        else setFilterType(type);
+    }
+
+    function clearFilters() {
+        setPeriod('month'); setFilterPublic(''); setFilterProc('');
+        setFilterSeller(''); setSelectedCreativeFilter('');
+        setFilterSource(''); setFilterLocation('');
+        setActiveTypeFilter('all'); setFilterType('all');
+        setFilterCampaignObjective('all');
+    }
+
+    async function handleAnalyzeAI() {
+        if (filteredSales.length === 0) return alert("Sem dados para analisar neste período.");
+        setAnalyzingAI(true);
+        try {
+            const result = await analyzeDataWithAI(metrics.aiMetrics);
+            if (result) { setAiHTML(marked.parse(result)); setShowAI(true); }
+        } catch (e) { alert("Erro ao conectar com a IA: " + e.message); }
+        setAnalyzingAI(false);
+    }
+
+    async function handleAddMarketing() {
+        const investment = parseFloat(mktInvestment);
+        const leads = parseFloat(mktLeads);
+        if (!mktStartDate || !mktEndDate || isNaN(investment) || isNaN(leads)) return alert("Preencha todos os campos");
+
+        const newMkt = { startDate: mktStartDate, endDate: mktEndDate, campaign: mktCampaign, location: mktLocation, investment, platform: mktPlatform, leads };
+        setSavingMkt(true);
+        try {
+            await apiAddMarketing(newMkt);
+            dispatch({ type: 'ADD_MARKETING', payload: newMkt });
+            showToast("Marketing Salvo!");
+            setMktInvestment(''); setMktLeads('');
+            setTimeout(() => setShowMktModal(false), 500);
+        } catch (e) { console.error(e); alert("Erro ao salvar"); }
+        setSavingMkt(false);
+    }
+
+    // Sorted performance table
+    const sortedTags = Object.keys(grouped).sort((a, b) => grouped[b].value - grouped[a].value);
+
+    // Details modal data
+    let detailsSales = [];
+    let detailsContext = '';
+    if (detailsTag !== null) {
+        if (detailsTag === 'ALL') { detailsSales = filteredSales; detailsContext = "Todas as Vendas"; }
+        else if (detailsTag === 'ORGÂNICO') { detailsSales = filteredSales.filter(s => ['Instagram', 'Site', 'SITE', 'Indicação', 'Reativação Cliente', 'Reativação Vendedora', 'Orgânico', 'Paciente Antigo'].includes(s.source)); detailsContext = "Origem: Orgânico / Outros"; }
+        else if (detailsTag === 'Tráfego Pago') { detailsSales = filteredSales.filter(s => s.source === 'Tráfego Pago'); detailsContext = "Origem: Tráfego Pago (Todas as Tags)"; }
+        else { detailsSales = filteredSales.filter(s => s.tag && s.tag.toUpperCase() === detailsTag.toUpperCase()); const hm = history.find(h => h.refCode && h.refCode.toUpperCase() === detailsTag.toUpperCase()); detailsContext = hm ? `${detailsTag} - ${hm.campaign}` : `Tag: ${detailsTag}`; }
+    }
+
+    return (
+        <div className="w-full max-w-[1400px]">
+            <div className="grid grid-cols-1 gap-8">
+                <section className="space-y-6">
+
+                    {/* FILTERS */}
+                    <div className="glass-panel rounded-2xl relative z-30 overflow-hidden">
+                        <div className="p-4 flex items-center justify-between cursor-pointer border-b border-gray-800/50 transition-colors hover:bg-white/5" onClick={() => setFiltersOpen(!filtersOpen)}>
+                            <div className="flex items-center gap-2">
+                                <div className="bg-blue-600/20 p-2 rounded-lg" style={{ padding: '0.35rem' }}><i className="ph-fill ph-funnel text-blue-400 text-lg"></i></div>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Filtros de Análise</h3>
+                            </div>
+                            <i className={`ph-bold ${filtersOpen ? 'ph-caret-up' : 'ph-caret-down'} text-gray-400`} style={{ fontSize: '1.1rem' }}></i>
+                        </div>
+                        {filtersOpen && (
+                            <div className="p-5 pt-4 flex flex-col gap-4 transition-all duration-300">
+                                <div className="flex gap-3 items-end w-full">
+                                    <div className="flex-1 max-w-[200px]">
+                                        <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Período</label>
+                                        <select value={period} onChange={e => setPeriod(e.target.value)} className="input-field w-full rounded-lg px-3 py-2 text-xs cursor-pointer">
+                                            <option value="month">Este Mês</option>
+                                            <option value="last_month">Mês Anterior</option>
+                                            <option value="year">Este Ano</option>
+                                            <option value="today">Hoje</option>
+                                            <option value="week">Esta Semana</option>
+                                            <option value="all">Todo o Período</option>
+                                            <option value="custom">Personalizado</option>
+                                        </select>
+                                    </div>
+                                    {period === 'custom' && (
+                                        <div className="flex gap-2 flex-1">
+                                            <div className="flex-1"><label className="text-[10px] text-gray-500 uppercase block mb-1">Início</label><input type="date" value={filterStart} onChange={e => setFilterStart(e.target.value)} className="input-field w-full rounded-lg px-2 py-2 text-xs" /></div>
+                                            <div className="flex-1"><label className="text-[10px] text-gray-500 uppercase block mb-1">Fim</label><input type="date" value={filterEnd} onChange={e => setFilterEnd(e.target.value)} className="input-field w-full rounded-lg px-2 py-2 text-xs" /></div>
+                                        </div>
+                                    )}
+                                    <button onClick={() => {}} className="h-[34px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase px-6 rounded-lg flex items-center gap-2 shadow-lg shadow-blue-900/30 cursor-pointer transition-all hover:scale-105 ml-auto">
+                                        <i className="ph-bold ph-magnifying-glass"></i> Filtrar
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t border-gray-800/50">
+                                    <div><label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Tipo Venda</label><select value={filterType} onChange={e => { setFilterType(e.target.value); setActiveTypeFilter(e.target.value); }} className="input-field w-full rounded-lg px-2 py-1.5 text-xs"><option value="all">Todos</option><option value="Consulta">Só Consultas</option><option value="Procedimento">Só Procedimentos</option></select></div>
+                                    <div><label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Público</label><select value={filterPublic} onChange={e => setFilterPublic(e.target.value)} className="input-field w-full rounded-lg px-2 py-1.5 text-xs"><option value="">Todos</option>{publics.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}</select></div>
+                                    <div><label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Procedimento</label><select value={filterProc} onChange={e => setFilterProc(e.target.value)} className="input-field w-full rounded-lg px-2 py-1.5 text-xs"><option value="">Todos</option>{procedures.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}</select></div>
+                                    <div><label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Vendedora</label><select value={filterSeller} onChange={e => setFilterSeller(e.target.value)} className="input-field w-full rounded-lg px-2 py-1.5 text-xs"><option value="">Todas</option><option value="Amanda">Amanda</option><option value="Daniele">Daniele</option><option value="Margo">Margo</option><option value="Outro">Outro</option></select></div>
+                                    <div><label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Origem Lead</label><select value={filterSource === 'Site' ? 'SITE' : filterSource} onChange={e => setFilterSource(e.target.value)} className="input-field w-full rounded-lg px-2 py-1.5 text-xs cursor-pointer"><option value="">Todas</option><option value="Tráfego Pago">Tráfego Pago</option><option value="Instagram">Instagram</option><option value="SITE">SITE</option><option value="Orgânico">Orgânico</option><option value="Indicação">Indicação</option><option value="Paciente Antigo">Paciente Antigo</option><option value="Reativação Cliente">Reativação Cliente</option><option value="Reativação Vendedora">Reativação Vendedora</option></select></div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                                    <div><label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Local (Unidade)</label><select value={filterLocation} onChange={e => setFilterLocation(e.target.value)} className="input-field w-full rounded-lg px-2 py-1.5 text-xs"><option value="">Todas</option><option value="Cabo Frio">Cabo Frio</option><option value="Barra da Tijuca">Barra da Tijuca</option></select></div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Objetivo da Campanha</label>
+                                        <select value={filterCampaignObjective} onChange={e => setFilterCampaignObjective(e.target.value)} className="input-field w-full rounded-lg px-2 py-1.5 text-xs">
+                                            <option value="all">Todos os Objetivos</option>
+                                            <option value="vendas">Vendas / Leads</option>
+                                            <option value="engajamento">Engajamento / Branding</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[9px] text-gray-500 uppercase font-bold block mb-1">Buscar Criativo</label>
+                                        <CustomDropdown items={getAllCreatives()} value={selectedCreativeFilter} onChange={setSelectedCreativeFilter} placeholder="Nome ou código..." className="px-3 py-1.5" />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end"><button onClick={clearFilters} className="text-[10px] text-gray-500 hover:text-red-400 underline cursor-pointer">Limpar Tudo</button></div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* OVERVIEW HEADER */}
+                    <div className="flex justify-between items-center mt-6 border-b border-gray-800 pb-3 mb-4 relative z-10">
+                        <h3 className="text-lg font-bold text-white uppercase flex items-center gap-2">
+                            <i className="ph-fill ph-chart-line-up text-blue-500 text-xl"></i> Visão Geral
+                        </h3>
+                        <button type="button" onClick={handleAnalyzeAI} disabled={analyzingAI} className="text-xs flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-3 py-1.5 rounded-lg hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all cursor-pointer border border-white/10 hover:scale-105">
+                            <i className={`ph-fill ${analyzingAI ? 'ph-spinner animate-spin' : 'ph-magic-wand'}`}></i> {analyzingAI ? 'Analisando...' : 'Análise Inteligente'}
+                        </button>
+                    </div>
+
+                    {/* AI INSIGHTS */}
+                    {showAI && (
+                        <div className="mb-6 ai-border bg-gray-900/90 rounded-xl p-5 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10"><i className="ph-fill ph-brain text-6xl text-white"></i></div>
+                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                <h4 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 uppercase flex items-center gap-2">
+                                    <i className="ph-fill ph-sparkle text-blue-400"></i> Insights Estratégicos
+                                </h4>
+                                <button type="button" onClick={() => setShowAI(false)} className="text-gray-500 hover:text-white"><i className="ph-bold ph-x"></i></button>
+                            </div>
+                            <div className="ai-analytics-content prose text-gray-300 text-sm relative z-10" dangerouslySetInnerHTML={{ __html: aiHTML }} />
+                            <button onClick={() => exportAIReport(metrics.aiMetrics, aiHTML, showToast)} className="mt-4 w-full py-2.5 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02] border border-white/10 shadow-lg shadow-green-900/20">
+                                <i className="ph-bold ph-file-pdf"></i> Exportar Relatório em PDF
+                            </button>
+                        </div>
+                    )}
+
+                    {/* KPI GRID */}
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 relative z-10">
+                        {/* Revenue Card */}
+                        <div className="md:col-span-2 md:row-span-2 glass-panel p-5 rounded-xl border-t-4 border-blue-500 clickable-card relative overflow-hidden h-full flex flex-col md:flex-row gap-4 justify-between" onClick={() => filterByType('all')}>
+                            <div className="relative z-10 flex flex-col justify-between h-full w-full md:w-1/2">
+                                <div>
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Faturamento Total</p>
+                                    <h3 className="text-3xl lg:text-4xl font-bold text-white">{formatCurrency(metrics.total)}</h3>
+                                </div>
+                                <div className="mt-auto bg-black/40 p-3 rounded-lg border border-green-500/30 self-start md:mt-0 mt-4">
+                                    <p className="text-[9px] text-green-500 uppercase tracking-wider mb-0.5"><i className="ph-fill ph-tag"></i> Ticket Médio (Procedimento)</p>
+                                    <h3 className="text-xl font-bold text-white relative z-20">{metrics.ticketMedioProc > 0 ? formatCurrency(metrics.ticketMedioProc) : '--'}</h3>
+                                </div>
+                            </div>
+                            <div className="w-full md:w-1/2 h-32 md:h-full relative flex items-center justify-center opacity-80 pointer-events-none">
+                                <canvas ref={revenueChartRef}></canvas>
+                            </div>
+                        </div>
+
+                        {/* Consultas */}
+                        <div className={`glass-panel p-4 rounded-xl border-t-2 border-purple-500 clickable-card flex justify-between items-center ${activeTypeFilter === 'Consulta' ? 'active' : ''}`} onClick={() => filterByType('Consulta')}>
+                            <div>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Vendas Consultas</p>
+                                <h3 className="text-3xl font-bold text-white">{metrics.cCon}</h3>
+                            </div>
+                            <div className="flex flex-col text-right text-[10px] text-purple-300 font-medium leading-relaxed">
+                                <span><b className="text-white font-bold text-xs">{metrics.conCF}</b> Cabo Frio</span>
+                                <span><b className="text-white font-bold text-xs">{metrics.conBarra}</b> Barra da Tijuca</span>
+                                <span><b className="text-white font-bold text-xs">{metrics.conOnline}</b> Online</span>
+                            </div>
+                        </div>
+
+                        {/* Status Consultas */}
+                        <div className="glass-panel p-4 rounded-xl border-t-2 border-purple-500 flex flex-col justify-center gap-1">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 text-center font-bold">Status Consultas</p>
+                            <div className="flex justify-between items-center text-[10px] font-bold"><span className="text-green-400">Realizada</span><span className="text-white">{metrics.statRealizada}</span></div>
+                            <div className="flex justify-between items-center text-[10px] font-bold"><span className="text-yellow-400">Agendada</span><span className="text-white">{metrics.statAgendada}</span></div>
+                            <div className="flex justify-between items-center text-[10px] font-bold"><span className="text-red-400">Cancelada</span><span className="text-white">{metrics.statCancelada}</span></div>
+                        </div>
+
+                        {/* Procedimentos */}
+                        <div className={`glass-panel p-4 rounded-xl border-t-2 border-green-500 clickable-card flex justify-between items-center ${activeTypeFilter === 'Procedimento' ? 'active' : ''}`} onClick={() => filterByType('Procedimento')}>
+                            <div>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Vendas Procedimentos</p>
+                                <h3 className="text-3xl font-bold text-white">{metrics.cPro}</h3>
+                            </div>
+                            <div className="flex flex-col text-right text-[10px] text-green-300 font-medium leading-relaxed">
+                                <span><b className="text-white font-bold text-xs">{metrics.procCF}</b> Cabo Frio</span>
+                                <span><b className="text-white font-bold text-xs">{metrics.procBarra}</b> Barra da Tijuca</span>
+                            </div>
+                        </div>
+
+                        {/* Ciclos */}
+                        <div className="col-span-1 md:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div className="glass-panel p-3 rounded-xl border-l-4 border-purple-500 bg-purple-900/10 flex flex-col justify-center">
+                                <p className="text-[9px] text-purple-500 uppercase tracking-wider mb-1 leading-tight"><i className="ph-bold ph-timer"></i> Ciclo (Lead &gt; Consulta)</p>
+                                <h3 className="text-lg font-bold text-white">{metrics.avgCon !== null ? metrics.avgCon + ' dias' : '--'}</h3>
+                            </div>
+                            <div className="glass-panel p-3 rounded-xl border-l-4 border-pink-500 bg-pink-900/10 flex flex-col justify-center">
+                                <p className="text-[9px] text-pink-500 uppercase tracking-wider mb-1 leading-tight"><i className="ph-bold ph-timer"></i> Ciclo (Lead &gt; Procedimento)</p>
+                                <h3 className="text-lg font-bold text-white">{metrics.avgPro !== null ? metrics.avgPro + ' dias' : '--'}</h3>
+                            </div>
+                            <div className="glass-panel p-3 rounded-xl border-l-4 border-cyan-500 bg-cyan-900/10 flex flex-col justify-center col-span-2 md:col-span-1">
+                                <p className="text-[9px] text-cyan-500 uppercase tracking-wider mb-1 leading-tight"><i className="ph-bold ph-clock-clockwise"></i> Consulta &gt; Procedimento</p>
+                                <h3 className="text-lg font-bold text-white">{metrics.avgConsToProc !== null ? metrics.avgConsToProc + ' dias' : '--'}</h3>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    {/* CHARTS */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-0">
+                        <div className="glass-panel p-4 rounded-xl"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Faturamento por Origem</h4><div className="h-40 relative"><canvas ref={sourceChartRef}></canvas></div></div>
+                        <div className="glass-panel p-4 rounded-xl"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Top 5 Criativos (R$)</h4><div className="h-40 relative"><canvas ref={tagsChartRef}></canvas></div></div>
+                    </div>
+
+                    {/* MARKETING SECTION */}
+                    <div className="flex justify-between items-center mt-6 border-b border-gray-800 pb-3 mb-4">
+                        <h3 className="text-lg font-bold text-white uppercase flex items-center gap-2"><i className="ph-fill ph-megaphone text-orange-500 text-xl"></i> Marketing</h3>
+                        <button onClick={() => setShowMktModal(true)} className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg cursor-pointer transition-all hover:scale-105">
+                            <i className="ph-bold ph-plus"></i> Lançar Investimento
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div className="md:col-span-2 md:row-span-2 glass-panel p-5 rounded-xl border-t-4 border-orange-500 flex flex-col h-full relative overflow-hidden">
+                            <div className="flex justify-between items-start z-10 relative h-full">
+                                <div className="flex flex-col justify-between h-full w-full md:w-3/5">
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Investimento Total</p>
+                                        <h3 className="text-3xl font-bold text-white mb-2">{formatCurrency(metrics.totalInvestReal)}</h3>
+                                    </div>
+                                    
+                                    <div className="space-y-2 mt-3">
+                                        {/* Distribuição por Objetivo */}
+                                        <div className="flex items-center gap-3 bg-white/5 p-2 rounded-lg border border-white/5">
+                                            <div className="flex-1">
+                                                <p className="text-[9px] text-teal-400 uppercase tracking-wider mb-0.5 font-bold"><i className="ph-fill ph-target"></i> Leads (Vendas)</p>
+                                                <p className="text-xs font-bold text-white">{formatCurrency(metrics.vendasInvestReal)}</p>
+                                            </div>
+                                            <div className="w-px bg-gray-800 self-stretch"></div>
+                                            <div className="flex-1">
+                                                <p className="text-[9px] text-indigo-400 uppercase tracking-wider mb-0.5 font-bold"><i className="ph-fill ph-eye"></i> Branding (Engaj.)</p>
+                                                <p className="text-xs font-bold text-white">{formatCurrency(metrics.engajamentoInvestReal)}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Detalhe de Custos */}
+                                        <div className="flex items-center gap-4 bg-white/5 p-2 rounded-lg border border-white/10">
+                                            <div>
+                                                <p className="text-[9px] text-orange-400 uppercase tracking-wider mb-0.5">Mídia (Ads)</p>
+                                                <p className="text-xs font-bold text-orange-300">{formatCurrency(metrics.totalInvest)}</p>
+                                            </div>
+                                            <div className="h-6 w-px bg-gray-700"></div>
+                                            <div>
+                                                <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">Imposto (+12,15%)</p>
+                                                <p className="text-xs font-bold text-gray-300">{formatCurrency(metrics.taxAmount)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="h-32 w-32 relative hidden md:block"><canvas ref={mktPieRef}></canvas></div>
+                            </div>
+                        </div>
+                        <div className="glass-panel p-4 rounded-xl border-t-2 border-orange-500 flex flex-col justify-center">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Leads Totais</p>
+                            <h3 className="text-2xl font-bold text-white mt-1">{metrics.totalLeadsCount}</h3>
+                        </div>
+                        <div className="glass-panel p-4 rounded-xl border-t-2 border-orange-500 flex flex-col justify-center">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">CPL Médio</p>
+                            <h3 className="text-2xl font-bold text-white mt-1">{formatCurrency(metrics.cpl)}</h3>
+                            <p className="text-[9px] text-gray-500 mt-1">
+                                {filterCampaignObjective === 'all' ? 'Todos os objetivos' : filterCampaignObjective === 'vendas' ? 'Foco em Vendas' : 'Foco em Engajamento'}
+                            </p>
+                        </div>
+                        <div className="glass-panel p-4 rounded-xl bg-blue-900/10 border border-blue-500/30 flex flex-col justify-center">
+                            <div className="flex justify-between items-center mb-1"><p className="text-[9px] text-blue-400 uppercase font-bold tracking-widest"><i className="ph-fill ph-meta-logo"></i> Meta Ads</p><span className="text-[9px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-mono">CPL: {formatCurrency(metrics.metaCPL)}</span></div>
+                            <h4 className="text-xl font-bold text-white">{formatCurrency(metrics.metaInvestReal)}</h4>
+                            <p className="text-[9px] text-gray-500 mt-1">{metrics.metaLeads} Leads gerados</p>
+                        </div>
+                        <div className="glass-panel p-4 rounded-xl bg-orange-900/10 border border-orange-500/30 flex flex-col justify-center">
+                            <div className="flex justify-between items-center mb-1"><p className="text-[9px] text-orange-400 uppercase font-bold tracking-widest"><i className="ph-fill ph-google-logo"></i> Google Ads</p><span className="text-[9px] bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded font-mono">CPL: {formatCurrency(metrics.googleCPL)}</span></div>
+                            <h4 className="text-xl font-bold text-white">{formatCurrency(metrics.googleInvestReal)}</h4>
+                            <p className="text-[9px] text-gray-500 mt-1">{metrics.googleLeads} Leads gerados</p>
+                        </div>
+                    </div>
+
+                    {/* FUNIL DETALHADO (POR UNIDADE E GÊNERO) */}
+                    <div className="mb-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <i className="ph-fill ph-funnel text-xl text-blue-400"></i>
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Conversão Cruzada por Gênero e Unidade</h3>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {/* --- LINHA 1: BARRA --- */}
+                            <FunnelCard 
+                                title="Barra (RJ) - Mulheres" 
+                                icon={<><i className="ph-fill ph-map-pin"></i> 👩</>}
+                                borderColor="border-emerald-500" 
+                                iconColor="text-emerald-400" 
+                                bgHeaderClass="bg-gradient-to-br from-emerald-950/20 to-transparent"
+                                leads={metrics.leadsRJ_Mulher} 
+                                invest={metrics.investRealRJ_Mulher} 
+                                cpl={metrics.cplRJ_Mulher} 
+                                cons={metrics.conRJ_Mulher} 
+                                realCons={metrics.realConRJ_Mulher} 
+                                procs={metrics.procRJ_Mulher} 
+                                revenueProc={metrics.revenueProcRJ_Mulher}
+                                revenueCons={metrics.revenueConRJ_Mulher}
+                            />
+                            
+                            <FunnelCard 
+                                title="Barra (RJ) - Homens" 
+                                icon={<><i className="ph-fill ph-map-pin"></i> 👨</>}
+                                borderColor="border-emerald-600" 
+                                iconColor="text-emerald-500" 
+                                bgHeaderClass="bg-gradient-to-br from-emerald-950/10 to-transparent"
+                                leads={metrics.leadsRJ_Homem} 
+                                invest={metrics.investRealRJ_Homem} 
+                                cpl={metrics.cplRJ_Homem} 
+                                cons={metrics.conRJ_Homem} 
+                                realCons={metrics.realConRJ_Homem} 
+                                procs={metrics.procRJ_Homem} 
+                                revenueProc={metrics.revenueProcRJ_Homem}
+                                revenueCons={metrics.revenueConRJ_Homem}
+                            />
+
+                            <FunnelCard 
+                                title="Barra (RJ) - Agregado" 
+                                icon={<><i className="ph-fill ph-map-pin"></i> 👥</>}
+                                borderColor="border-emerald-400" 
+                                iconColor="text-emerald-300" 
+                                bgHeaderClass="bg-gradient-to-br from-emerald-900/30 to-transparent"
+                                leads={metrics.leadsRJ_Mulher + metrics.leadsRJ_Homem} 
+                                invest={metrics.investRealRJ_Mulher + metrics.investRealRJ_Homem} 
+                                cpl={(metrics.investRealRJ_Mulher + metrics.investRealRJ_Homem) / Math.max(1, metrics.leadsRJ_Mulher + metrics.leadsRJ_Homem)} 
+                                cons={metrics.conRJ_Mulher + metrics.conRJ_Homem} 
+                                realCons={metrics.realConRJ_Mulher + metrics.realConRJ_Homem} 
+                                procs={metrics.procRJ_Mulher + metrics.procRJ_Homem} 
+                                revenueProc={metrics.revenueProcRJ_Mulher + metrics.revenueProcRJ_Homem}
+                                revenueCons={metrics.revenueConRJ_Mulher + metrics.revenueConRJ_Homem}
+                            />
+
+                            {/* --- LINHA 2: CABO FRIO --- */}
+                            <FunnelCard 
+                                title="Cabo Frio - Mulheres" 
+                                icon={<><i className="ph-fill ph-map-pin"></i> 👩</>}
+                                borderColor="border-cyan-500" 
+                                iconColor="text-cyan-400" 
+                                bgHeaderClass="bg-gradient-to-br from-cyan-950/20 to-transparent"
+                                leads={metrics.leadsCF_Mulher} 
+                                invest={metrics.investRealCF_Mulher} 
+                                cpl={metrics.cplCF_Mulher} 
+                                cons={metrics.conCF_Mulher} 
+                                realCons={metrics.realConCF_Mulher} 
+                                procs={metrics.procCF_Mulher} 
+                                revenueProc={metrics.revenueProcCF_Mulher}
+                                revenueCons={metrics.revenueConCF_Mulher}
+                            />
+
+                            <FunnelCard 
+                                title="Cabo Frio - Homens" 
+                                icon={<><i className="ph-fill ph-map-pin"></i> 👨</>}
+                                borderColor="border-cyan-600" 
+                                iconColor="text-cyan-500" 
+                                bgHeaderClass="bg-gradient-to-br from-cyan-950/10 to-transparent"
+                                leads={metrics.leadsCF_Homem} 
+                                invest={metrics.investRealCF_Homem} 
+                                cpl={metrics.cplCF_Homem} 
+                                cons={metrics.conCF_Homem} 
+                                realCons={metrics.realConCF_Homem} 
+                                procs={metrics.procCF_Homem} 
+                                revenueProc={metrics.revenueProcCF_Homem}
+                                revenueCons={metrics.revenueConCF_Homem}
+                            />
+
+                            <FunnelCard 
+                                title="Cabo Frio - Agregado" 
+                                icon={<><i className="ph-fill ph-map-pin"></i> 👥</>}
+                                borderColor="border-cyan-400" 
+                                iconColor="text-cyan-300" 
+                                bgHeaderClass="bg-gradient-to-br from-cyan-900/30 to-transparent"
+                                leads={metrics.leadsCF_Mulher + metrics.leadsCF_Homem} 
+                                invest={metrics.investRealCF_Mulher + metrics.investRealCF_Homem} 
+                                cpl={(metrics.investRealCF_Mulher + metrics.investRealCF_Homem) / Math.max(1, metrics.leadsCF_Mulher + metrics.leadsCF_Homem)} 
+                                cons={metrics.conCF_Mulher + metrics.conCF_Homem} 
+                                realCons={metrics.realConCF_Mulher + metrics.realConCF_Homem} 
+                                procs={metrics.procCF_Mulher + metrics.procCF_Homem} 
+                                revenueProc={metrics.revenueProcCF_Mulher + metrics.revenueProcCF_Homem}
+                                revenueCons={metrics.revenueConCF_Mulher + metrics.revenueConCF_Homem}
+                            />
+
+                            {/* --- LINHA 3: ONLINE --- */}
+                            <FunnelCard 
+                                hideLeads={true}
+                                title="Online - Mulheres" 
+                                icon={<><i className="ph-fill ph-globe"></i> 👩</>}
+                                borderColor="border-purple-500" 
+                                iconColor="text-purple-400" 
+                                bgHeaderClass="bg-gradient-to-br from-purple-950/20 to-transparent"
+                                leads={0} invest={0} cpl={0} 
+                                cons={metrics.conOnline_Mulher} 
+                                realCons={metrics.realConOnline_Mulher} 
+                                procs={metrics.procOnline_Mulher} 
+                                revenueProc={metrics.revenueProcOnline_Mulher}
+                                revenueCons={metrics.revenueConOnline_Mulher}
+                            />
+
+                            <FunnelCard 
+                                hideLeads={true}
+                                title="Online - Homens" 
+                                icon={<><i className="ph-fill ph-globe"></i> 👨</>}
+                                borderColor="border-purple-600" 
+                                iconColor="text-purple-500" 
+                                bgHeaderClass="bg-gradient-to-br from-purple-950/10 to-transparent"
+                                leads={0} invest={0} cpl={0} 
+                                cons={metrics.conOnline_Homem} 
+                                realCons={metrics.realConOnline_Homem} 
+                                procs={metrics.procOnline_Homem} 
+                                revenueProc={metrics.revenueProcOnline_Homem}
+                                revenueCons={metrics.revenueConOnline_Homem}
+                            />
+
+                            <FunnelCard 
+                                hideLeads={true}
+                                title="Online - Agregado" 
+                                icon={<><i className="ph-fill ph-globe"></i> 👥</>}
+                                borderColor="border-purple-400" 
+                                iconColor="text-purple-300" 
+                                bgHeaderClass="bg-gradient-to-br from-purple-900/30 to-transparent"
+                                leads={0} invest={0} cpl={0} 
+                                cons={metrics.conOnline_Mulher + metrics.conOnline_Homem} 
+                                realCons={metrics.realConOnline_Mulher + metrics.realConOnline_Homem} 
+                                procs={metrics.procOnline_Mulher + metrics.procOnline_Homem} 
+                                revenueProc={metrics.revenueProcOnline_Mulher + metrics.revenueProcOnline_Homem}
+                                revenueCons={metrics.revenueConOnline_Mulher + metrics.revenueConOnline_Homem}
+                            />
+                        </div>
+                    </div>
+
+
+
+                    {/* EVOLUTION CHART */}
+                    <div className="mb-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <i className="ph-fill ph-trend-up text-xl text-blue-400"></i>
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Evolução Temporal: CPL, Consultas e Faturamento</h3>
+                        </div>
+                        <div className="glass-panel p-4 rounded-xl relative z-0 h-80 w-full flex flex-col justify-center">
+                            {evolutionData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={evolutionData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                                        <XAxis dataKey="label" stroke="#6b7280" tick={{fontSize: 10}} tickMargin={10} />
+                                        <YAxis yAxisId="left" stroke="#6b7280" tick={{fontSize: 10}} width={40} axisLine={false} tickLine={false} />
+                                        <YAxis yAxisId="right" orientation="right" stroke="#34d399" tick={{fontSize: 10}} width={60} axisLine={false} tickLine={false} tickFormatter={(val) => `R$${(val/1000).toFixed(1)}k`} />
+                                        <RechartsTooltip 
+                                            contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', color: '#f3f4f6' }}
+                                            labelStyle={{ color: '#9ca3af', marginBottom: '8px', fontWeight: 'bold' }}
+                                            formatter={(value, name) => {
+                                                if (name === 'Faturamento') return [formatCurrency(value), name];
+                                                if (name === 'CPL') return [formatCurrency(value), name];
+                                                return [value, name];
+                                            }}
+                                        />
+                                        <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                                        <Line yAxisId="left" type="monotone" dataKey="CPL" name="CPL" stroke="#818cf8" strokeWidth={3} dot={{ r: 4, fill: '#111827' }} activeDot={{ r: 6 }} />
+                                        <Line yAxisId="left" type="monotone" dataKey="Consultas" name="Consultas" stroke="#f472b6" strokeWidth={3} dot={{ r: 4, fill: '#111827' }} activeDot={{ r: 6 }} />
+                                        <Line yAxisId="right" type="monotone" dataKey="Faturamento" name="Faturamento" stroke="#34d399" strokeWidth={3} dot={{ r: 4, fill: '#111827' }} activeDot={{ r: 6 }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="text-center text-gray-500 text-sm">Nenhum dado disponível para o período selecionado.</div>
+                            )}
+                        </div>
+                    </div>
+
+
+
+                    {/* PERFORMANCE TABLE */}
+                    <div className="glass-panel rounded-xl overflow-hidden relative z-0">
+                        <div className="p-4 border-b border-gray-800 flex justify-between items-center cursor-pointer" onClick={() => setPerformanceOpen(!performanceOpen)}>
+                            <h3 className="text-sm font-bold text-white flex items-center gap-2"><i className="ph-fill ph-trophy text-yellow-500"></i> Performance Detalhada</h3>
+                            <div className="flex items-center gap-2">
+                                {activeTypeFilter !== 'all' && <span className="text-xs text-blue-400 font-mono">Filtro Ativo: {activeTypeFilter}</span>}
+                                <i className={`ph-bold ${performanceOpen ? 'ph-caret-up' : 'ph-caret-down'} text-gray-500`}></i>
+                            </div>
+                        </div>
+                        {performanceOpen && (
+                            <div className="overflow-x-auto transition-all duration-300">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-gray-900/80 uppercase font-bold text-gray-500">
+                                        <tr><th className="px-4 py-3">Tag</th><th className="px-4 py-3">Campanha / Conjunto</th><th className="px-4 py-3">Criativo (Nome)</th><th className="px-4 py-3 text-center">Vendas</th><th className="px-4 py-3 text-center">Total (R$)</th></tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-800/50 text-gray-300">
+                                        {sortedTags.map(tag => (
+                                            <tr key={tag} onClick={() => setDetailsTag(tag)} className="performance-row hover:bg-blue-900/10 border-b border-gray-800/50">
+                                                <td className="px-4 py-3 font-mono text-xs text-blue-400 underline decoration-dotted decoration-blue-700 cursor-pointer">{tag}</td>
+                                                <td className="px-4 py-3 text-gray-400 text-[10px] truncate max-w-[120px]">{grouped[tag].campaign}<br /><span className="text-gray-600">{grouped[tag].adSet}</span></td>
+                                                <td className="px-4 py-3 text-gray-300 text-xs truncate max-w-[200px]">{grouped[tag].creativeName}</td>
+                                                <td className="px-4 py-3 text-center text-white">{grouped[tag].count}</td>
+                                                <td className="px-4 py-3 text-center text-green-400 font-bold">{formatCurrency(grouped[tag].value)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {sortedTags.length === 0 && (
+                                    <div className="py-12 flex flex-col items-center justify-center text-gray-600"><i className="ph ph-chart-bar text-4xl mb-2 opacity-50"></i><p>Sem dados para este filtro.</p></div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* SALES LOG */}
+                    <div className="glass-panel rounded-xl overflow-hidden opacity-80 hover:opacity-100 transition-opacity relative z-0">
+                        <div className="p-3 bg-gray-900/50 border-b border-gray-800 flex justify-between items-center cursor-pointer" onClick={() => setLogOpen(!logOpen)}>
+                            <h4 className="text-xs font-bold text-gray-400 uppercase">Histórico de Lançamentos (Log)</h4>
+                            <i className={`ph-bold ${logOpen ? 'ph-caret-up' : 'ph-caret-down'} text-gray-500`}></i>
+                        </div>
+                        {logOpen && (
+                            <div className="max-h-40 overflow-y-auto">
+                                <table className="w-full text-left text-[10px] text-gray-500">
+                                    <tbody className="divide-y divide-gray-800/30">
+                                        {[...filteredSales].reverse().map((s, idx) => (
+                                            <tr key={idx} className="cursor-pointer hover:bg-white/5 transition-colors border-b border-gray-800/30">
+                                                <td className="px-4 py-3 text-gray-500 text-[10px]">{formatDateBR(s.date)}</td>
+                                                <td className="px-4 py-3 text-white font-medium text-xs">{s.client || '-'}</td>
+                                                <td className="px-4 py-3 text-gray-400 text-[10px]">{s.type}</td>
+                                                <td className={`px-4 py-3 text-right font-mono text-xs ${s.status === 'Cancelado' ? 'text-red-500' : 'text-green-500'}`}>{formatCurrency(s.value)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </section>
+            </div>
+
+            {/* MARKETING MODAL */}
+            <Modal active={showMktModal} className="max-w-md p-6 border border-orange-500/30">
+                <div className="flex justify-between items-center mb-6"><h3 className="text-lg font-bold text-white flex items-center gap-2"><i className="ph-fill ph-megaphone text-orange-500"></i> Lançar Marketing</h3><button onClick={() => setShowMktModal(false)} className="text-gray-400 hover:text-white"><i className="ph-bold ph-x text-lg"></i></button></div>
+                <form className="space-y-4" onSubmit={e => e.preventDefault()}>
+                    <div className="flex gap-2">
+                        <div className="flex-1"><label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Data Início</label><input type="date" value={mktStartDate} onChange={e => setMktStartDate(e.target.value)} className="input-field w-full rounded-lg p-2 text-sm text-gray-300" /></div>
+                        <div className="flex-1"><label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">Data Fim</label><input type="date" value={mktEndDate} onChange={e => setMktEndDate(e.target.value)} className="input-field w-full rounded-lg p-2 text-sm text-gray-300" /></div>
+                    </div>
+                    <div><label className="text-[10px] font-bold text-blue-300 uppercase mb-1 block">Campanha (Público)</label><select value={mktCampaign} onChange={e => setMktCampaign(e.target.value)} className="input-field w-full rounded-lg p-3 text-sm cursor-pointer"><option value="Homem">Homem</option><option value="Mulher">Mulher</option><option value="Ambos">Ambos</option></select></div>
+                    <div><label className="text-[10px] font-bold text-purple-300 uppercase mb-1 block">Local (Região)</label><select value={mktLocation} onChange={e => setMktLocation(e.target.value)} className="input-field w-full rounded-lg p-3 text-sm cursor-pointer"><option value="Cabo Frio">Cabo Frio</option><option value="Barra da Tijuca">Barra da Tijuca</option><option value="Ambos">Ambos (Rateio 50/50)</option></select></div>
+                    <div><label className="text-[10px] font-bold text-orange-400 uppercase mb-1 block">Investimento (R$)</label><input type="number" value={mktInvestment} onChange={e => setMktInvestment(e.target.value)} placeholder="0,00" className="input-field w-full rounded-lg p-3 text-sm" step="0.01" /></div>
+                    <div><label className="text-[10px] font-bold text-blue-400 uppercase mb-1 block">Plataforma</label><select value={mktPlatform} onChange={e => setMktPlatform(e.target.value)} className="input-field w-full rounded-lg p-3 text-sm cursor-pointer"><option value="Meta Ads">Meta Ads (Facebook/Instagram)</option><option value="Google Ads">Google Ads (Search/Youtube)</option></select></div>
+                    <div><label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Leads Gerados</label><input type="number" value={mktLeads} onChange={e => setMktLeads(e.target.value)} placeholder="0" className="input-field w-full rounded-lg p-3 text-sm" /></div>
+                    <button type="button" onClick={handleAddMarketing} disabled={savingMkt} className={`w-full py-3 bg-orange-600 hover:bg-orange-500 rounded-lg text-white font-bold text-sm transition-all mt-4 ${savingMkt ? 'btn-loading' : ''}`}>{savingMkt ? 'Salvando...' : 'SALVAR DADOS'}</button>
+                </form>
+            </Modal>
+
+            {/* DETAILS MODAL */}
+            <Modal active={detailsTag !== null} className="max-w-2xl max-h-[80vh]">
+                <div className="flex justify-between items-center p-6 border-b border-gray-800">
+                    <div><h3 className="text-lg font-bold text-white flex items-center gap-2"><i className="ph-fill ph-list-magnifying-glass text-blue-500"></i> Detalhes das Vendas</h3><p className="text-xs text-blue-400 font-mono mt-1 uppercase">{detailsContext}</p></div>
+                    <button onClick={() => setDetailsTag(null)} className="text-gray-400 hover:text-white cursor-pointer"><i className="ph-bold ph-x text-lg"></i></button>
+                </div>
+                <div className="p-0 overflow-y-auto flex-1">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-gray-900/90 uppercase font-bold text-gray-400 sticky top-0">
+                            <tr><th className="px-6 py-4">Data</th><th className="px-6 py-4">Cliente</th><th className="px-6 py-4">Vendedora</th><th className="px-6 py-4">Tipo</th><th className="px-6 py-4">Local</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Valor</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-800/50 text-gray-300">
+                            {detailsSales.map((s, idx) => (
+                                <tr key={idx} className="hover:bg-blue-900/10 transition-colors">
+                                    <td className="px-6 py-3">{formatDateBR(s.date)}</td>
+                                    <td className="px-6 py-3 font-medium text-white">{s.client}</td>
+                                    <td className="px-6 py-3 text-pink-400">{s.seller}</td>
+                                    <td className="px-6 py-3"><div>{s.type}</div>{s.procedureDetail && <div className="text-[9px] text-gray-500">{s.procedureDetail}</div>}</td>
+                                    <td className="px-6 py-3">{s.location}</td>
+                                    <td className="px-6 py-3"><span className={`px-2 py-1 rounded-full text-[10px] ${(s.status || '').includes('Cancelado') ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'}`}>{s.status}</span></td>
+                                    <td className="px-6 py-3 text-right font-mono text-green-400 font-bold">{formatCurrency(s.value)}</td>
+                                </tr>
+                            ))}
+                            {detailsSales.length === 0 && <tr><td colSpan="7" className="px-6 py-6 text-center text-gray-500">Nenhuma venda listada para este contexto no período atual.</td></tr>}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="p-4 border-t border-gray-800 bg-black/20 flex justify-end"><button onClick={() => setDetailsTag(null)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-white text-xs">Fechar</button></div>
+            </Modal>
+        </div>
+    );
+}
