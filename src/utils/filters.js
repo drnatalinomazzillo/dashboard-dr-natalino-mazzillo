@@ -212,18 +212,18 @@ export function getFilteredMarketing(marketing, period, filterStart, filterEnd, 
 
                 // Distribui os leads e investimentos do local por público (gênero) - Apenas para campanhas de Vendas/Leads (exclui Branding/Engajamento)
                 if (!isEngajamento) {
-                    const camp = (m.campaign || "").trim();
-                    if (camp === 'Homem') {
+                    const camp = (m.campaign || "").trim().toLowerCase();
+                    if (camp.includes('homem')) {
                         leadsRJ_Homem += rjLeadsForRecord;
                         leadsCF_Homem += cfLeadsForRecord;
                         investRJ_Homem += rjInvestForRecord;
                         investCF_Homem += cfInvestForRecord;
-                    } else if (camp === 'Mulher') {
+                    } else if (camp.includes('mulher')) {
                         leadsRJ_Mulher += rjLeadsForRecord;
                         leadsCF_Mulher += cfLeadsForRecord;
                         investRJ_Mulher += rjInvestForRecord;
                         investCF_Mulher += cfInvestForRecord;
-                    } else { // Ambos
+                    } else { // Fallback para 50/50 apenas se a coluna estiver vazia ou não tiver as palavras chave
                         leadsRJ_Homem += Math.ceil(rjLeadsForRecord / 2);
                         leadsRJ_Mulher += Math.floor(rjLeadsForRecord / 2);
                         leadsCF_Homem += Math.ceil(cfLeadsForRecord / 2);
