@@ -1,53 +1,56 @@
-# Status do Projeto - Dashboard Dr. Natalino Mazzillo - 01/07/2026 Por Tiago Benevides
+# Status do Projeto - Dashboard Dr. Natalino Mazzillo - 31/07/2026
 
 Documento de controle de status, pendências e melhorias do projeto.
 
 ---
 
-## 📌 Status Atual: Estável e Integrado
+## 📌 Status Atual: Integração Kommo Estável e 100% Funcional (Versão 49)
 > [!NOTE]
-> **Conexão com a API e Gemini Restabelecida**
-> A integração com a API do Google Apps Script foi completamente restabelecida utilizando a nova URL de implantação. Além disso, o modelo de Inteligência Artificial foi atualizado com sucesso para o **Gemini 3.5 Flash** e todas as novas segmentações financeiras/demográficas foram mapeadas em seu prompt para análises profundas.
+> **Integração Kommo CRM → Planilha Corrigida e Otimizada**
+> O envio de dados do Kommo CRM para a aba "Vendas" da planilha foi completamente reformulado no [Código.gs](file:///D:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/Código.gs). A integração agora diferencia os dois funis (Consulta vs. Procedimento), captura as datas corretas dos campos personalizados, previne duplicações em duas camadas e responde em sub-segundo (< 1s), eliminando retries automáticos.
 
-### Próximos Passos (Amanhã / Futuro):
-1. **Validação Operacional com o Cliente**:
-   * Testar o lançamento de novas vendas com o seletor de Gênero e verificar se está gravando corretamente na coluna N da planilha.
-   * Executar uma "Análise Inteligente" no ambiente de homologação/produção e avaliar a qualidade dos novos insights segmentados gerados pelo Gemini 3.5 Flash.
-2. **Implantação de Produção**:
-   * Atualizar o frontend no Netlify com os arquivos gerados pelo build de produção (`npm run build`).
+### Próximos Passos & Pendências Futuras:
+1. **⏳ Atualização de Status da Consulta (Pendência)**:
+   * Implementar a lógica de webhook no Kommo para a etapa de alterar o status da consulta da Coluna K de **"Agendado"** para **"Realizado"**, garantindo que a atualização encontre apenas a linha da consulta e não altere linhas de procedimento do mesmo cliente.
+2. **Implantação de Produção Frontend**:
+   * Atualizar a constante `API_URL` caso seja feita uma nova implantação e realizar o build de produção (`npm run build`) para deploy no Netlify.
 
 ---
 
-##  Melhorias Realizadas nesta Sessão (30/05/2026)
+## 🚀 Melhorias Realizadas nesta Sessão (31/07/2026)
+
+### 1. Diferenciação Dinâmica dos Funis do Kommo
+* **Detecção por `pipeline_id`**: O script identifica automaticamente se o webhook veio do **Funil 1 - Consulta** (`12121252`) ou do **Funil 2 - Procedimento** (`12197743`).
+* **Data da Venda (Coluna A)**: 
+  - Funil 1 usa o campo personalizado `3041602` (Data Venda Consulta).
+  - Funil 2 usa o campo personalizado `3026776` (Data Venda Procedimento).
+  - Parser universal de datas criado para tratar timestamps Unix (segundos/ms) e strings de data formatadas.
+* **Status (Coluna K)**: Usa `3026774` para Consulta e `3041658` para Procedimento.
+* **Tipo (Coluna E)**: Gravação automática de "Consulta" ou "Procedimento" conforme o funil.
+
+### 2. Dupla Trava Anti-Duplicação
+* **1ª Camada (Cache de 30s)**: Bloqueia disparos paralelos instantâneos enviados pelo Kommo no mesmo segundo (`KOMMO_ADD_{leadId}_{pipelineId}`).
+* **2ª Camada (Verificação na Coluna S)**: Gravação da chave única `leadId_Tipo_DataVenda` na **Coluna S**. O script lê apenas as últimas 20 linhas para verificar se a venda já existe antes de gravar, evitando linhas duplicadas por retries ou re-execuções.
+
+### 3. Otimização de Performance (< 1s) e Fim dos Retries
+* **Remoção de Logs Repetidos**: Removidas 5 chamadas intermediárias lentas de `debugSheet.appendRow()`, deixando apenas 1 gravação final de resumo.
+* **Leitura Enxuta**: A verificação de duplicação foi reduzida para ler apenas as últimas 20 linhas (em vez da planilha inteira).
+* **Resultado**: Tempo de execução reduzido de 3.5s para **< 1.0s**, garantindo resposta HTTP 200 OK imediata ao Kommo e eliminando os retries automáticos de 5min/15min.
+
+### 4. Documentação Técnica Criada
+* Criado o documento [documentacao-integracao-kommo.md](file:///D:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/documentacao-integracao-kommo.md) na raiz do projeto com a tabela completa de IDs de custom fields do Kommo, mapeamento de colunas da aba "Vendas" (A até S) e regras dos funis.
+
+---
+
+##  Melhorias Anteriores (30/05/2026)
 
 ### 1. Restabelecimento da API & Integração de IA (Gemini 3.5 Flash)
-* **Novo Endpoint**: Atualizada a constante `API_URL` em [api.js](file:///x:/DASH%20NATALINO/dashboard-drnatalino-mazzillo/src/config/api.js#L2) para apontar para a nova implantação ativa do Apps Script.
-* **Gemini 3.5 Flash**: Modelo de IA atualizado no Apps Script ([Código.gs](file:///x:/DASH%20NATALINO/dashboard-drnatalino-mazzillo/Código.gs#L50)) de `gemini-2.0-flash` para `gemini-3.5-flash`, trazendo maior velocidade de resposta e inteligência de growth.
-* **Enriquecimento do Prompt**: O template de prompt da IA em [geminiService.js](file:///x:/DASH%20NATALINO/dashboard-drnatalino-mazzillo/src/services/geminiService.js#L77-L87) foi atualizado para receber o detalhamento de conversão cruzada por gênero e localidade, CPL segmentado, custos reais e faturamento de consultas.
+* **Gemini 3.5 Flash**: Modelo de IA atualizado no Apps Script para `gemini-3.5-flash`.
+* **Prompt Enriquecido**: Mapeamento de conversão cruzada por gênero e localidade, CPL segmentado, custos reais e faturamento de consultas.
 
-### 2. Leitura e Escrita do Gênero (Coluna N da planilha "Vendas")
-* **Apps Script**: Ajustada a função `read` para ler 14 colunas da planilha (A a N), capturando a coluna de gênero ("homem"/"mulher") no objeto `sales`.
-* **Escrita e Edição**: Atualizadas as ações `addSale` e `editSale` no script para persistirem/editarem o gênero de forma consistente na coluna N.
-* **Interface do Usuário**:
-  * Adicionados seletores de Gênero ("Mulher" / "Homem") nos formulários de **Lançar Venda Real** ([SalesTab.jsx](file:///x:/DASH%20NATALINO/dashboard-drnatalino-mazzillo/src/components/sales/SalesTab.jsx#L183-L191)) e **Editar Venda** ([EditSaleModal.jsx](file:///x:/DASH%20NATALINO/dashboard-drnatalino-mazzillo/src/components/sales/EditSaleModal.jsx#L163-L170)).
-  * Exibição do gênero do cliente nos detalhes da venda.
+### 2. Leitura e Escrita do Gênero (Coluna N)
+* Suporte completo para gravação e leitura do gênero ("Mulher" / "Homem") na Coluna N.
 
-### 3. Cálculos Segmentados & Exclusão de Branding
-* **Lógica Proporcional**: Atualizada a lógica de distribuição de leads e custos no [filters.js](file:///x:/DASH%20NATALINO/dashboard-drnatalino-mazzillo/src/utils/filters.js#L175-L210) para segmentar investimentos e CPLs por região e público.
-* **Exclusão de Branding**: Campanhas com palavras-chave de branding/engajamento (`ENGAJAMENTO`, `ENG`, `VIDEO`, `ALCANCE`) são **excluídas automaticamente** das contas de leads regionais e CPL.
-* **Cálculos Gerais**: Inclusão de Consultas Agendadas, Consultas Realizadas, Procedimentos e Faturamento de Consultas segmentados por local e gênero no arquivo [calculations.js](file:///x:/DASH%20NATALINO/dashboard-drnatalino-mazzillo/src/utils/calculations.js#L102-L112).
-
-### 4. Evolução da Interface de Resultados (Funis)
-* **Matriz de Conversão Cruzada 3x3**: O painel visual de funis foi expandido para uma grade completa de 9 funis, cobrindo as unidades (Barra da Tijuca, Cabo Frio e Online) divididos por (Mulheres, Homens e Agregado/Total).
-* **Métricas Detalhadas**: O cartão inicial de Leads agora exibe o *Investimento Total* embutido. A etapa 4 do funil foi nomeada como *Faturamento*, passando a englobar a receita total (Consultas + Procedimentos) e calculando o *ROAS* real. O texto do *Ticket Médio* foi expandido para melhor legibilidade.
-* **Otimização Online**: Os funis da linha "Online" ocultam automaticamente a etapa inicial de Leads (já que o investimento/leads direto é R$ 0), focando direto em Consultas e Faturamento.
-
-### 5. Padronização de Origens e Filtros
-* **Origem "Paciente Antigo"**: Adicionada como nova opção de origem de venda nos formulários e filtros.
-* **Origem "SITE"**: A origem "Site Institucional" foi padronizada para exibir "SITE" em maiúsculo no frontend e gravar "SITE" nas colunas de Origem e Tag na planilha, mantendo a compatibilidade de leitura com dados antigos.
-* **Filtro de Período**: Adicionado o filtro de período "Este Ano" (1º de janeiro até hoje) nos dropdowns de Resultados e Simulador.
-
-### 6. Gráfico de Evolução Temporal (Recharts)
-* **Novo Componente**: Instalada a biblioteca `recharts` e implementado um gráfico de linhas interativo mostrando a evolução temporal das métricas.
-* **Eixos Independentes**: Utilização de eixos Y duplos (esquerdo para Consultas e CPL, direito para Faturamento) para permitir o cruzamento visual das linhas de diferentes grandezas.
-* **Agrupamento Inteligente**: O gráfico se agrupa automaticamente por *Mês* (se o filtro for "Este Ano" ou "Todo o Período") ou por *Dia* (se o filtro for mais curto, como "Este Mês").
+### 3. Funis de Conversão 3x3 e Gráficos
+* Matriz de conversão cruzada de 9 funis (Barra, Cabo Frio, Online) × (Mulheres, Homens, Total).
+* Gráfico de linha temporal com eixos Y duplos em `Recharts`.

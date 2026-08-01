@@ -26,6 +26,8 @@ export default function SalesTab() {
     const [saleSeller, setSaleSeller] = useState('Amanda');
     const [saleValue, setSaleValue] = useState('');
     const [saleGender, setSaleGender] = useState('Mulher');
+    const [saleEmail, setSaleEmail] = useState('');
+    const [salePhone, setSalePhone] = useState('');
     const [saving, setSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -37,12 +39,15 @@ export default function SalesTab() {
     const [editIndex, setEditIndex] = useState(null);
 
     // Single sale detail modal
+    const [isCustomProcedure, setIsCustomProcedure] = useState(false);
     const [detailSale, setDetailSale] = useState(null);
 
     async function handleAddSale() {
         const date = saleDate;
         const leadDate = saleLeadDate;
         const client = saleClient.trim();
+        const email = saleEmail.trim();
+        const phone = salePhone.trim();
         const source = saleSource;
         const type = saleType;
         const seller = saleSeller;
@@ -65,10 +70,11 @@ export default function SalesTab() {
             }
         } else if (source === 'Site' || source === 'SITE') tag = 'SITE';
 
-        if (!date || isNaN(value)) return alert("Preencha campos obrigatórios.");
+        if (!date || isNaN(value) || !client) return alert("Preencha os campos obrigatórios.");
+        if (!email || !phone) return alert("Preencha o E-mail e o Telefone da cliente (campos obrigatórios).");
         if (type === 'Procedimento' && (!procedureDetail || !consultationDate)) return alert("Preencha o procedimento vendido e a Data da Consulta.");
 
-        const newSale = { date, leadDate, client, source, tag, type, seller, value, procedureDetail, location, status, consultationDate, gender };
+        const newSale = { date, leadDate, client, source, tag, type, seller, value, procedureDetail, location, status, consultationDate, gender, email, phone };
 
         setSaving(true);
         setSaveSuccess(false);
@@ -77,6 +83,8 @@ export default function SalesTab() {
             dispatch({ type: 'ADD_SALE', payload: newSale });
             setSaleValue('');
             setSaleClient('');
+            setSaleEmail('');
+            setSalePhone('');
             setSaleGender('Mulher');
             setSaveSuccess(true);
             setTimeout(() => {
@@ -119,17 +127,62 @@ export default function SalesTab() {
 
                         {saleType === 'Procedimento' && (
                             <div>
-                                <label className="text-[10px] font-bold text-purple-300 uppercase mb-1 block">Qual Procedimento?</label>
-                                <select value={saleProcedureDetail} onChange={e => setSaleProcedureDetail(e.target.value)} className="input-field w-full rounded-lg p-3 text-sm cursor-pointer border-l-4 border-l-purple-500">
-                                    <option value="">Selecione...</option>
-                                    {procedures.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
-                                </select>
+                                <div className="flex justify-between items-center mb-1">
+                                    <label className="text-[10px] font-bold text-purple-300 uppercase block">Qual Procedimento?</label>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => {
+                                            setIsCustomProcedure(!isCustomProcedure);
+                                            setSaleProcedureDetail('');
+                                        }}
+                                        className="text-[10px] text-purple-400 hover:text-purple-300 underline font-semibold cursor-pointer"
+                                    >
+                                        {isCustomProcedure ? '← Selecionar da Lista' : '✏️ Outro / Digitar'}
+                                    </button>
+                                </div>
+                                {isCustomProcedure ? (
+                                    <input 
+                                        type="text" 
+                                        value={saleProcedureDetail} 
+                                        onChange={e => setSaleProcedureDetail(e.target.value)} 
+                                        placeholder="Digite o nome do procedimento..." 
+                                        className="input-field w-full rounded-lg p-3 text-sm border-l-4 border-l-purple-500" 
+                                    />
+                                ) : (
+                                    <select 
+                                        value={saleProcedureDetail} 
+                                        onChange={e => {
+                                            if (e.target.value === '__custom__') {
+                                                setIsCustomProcedure(true);
+                                                setSaleProcedureDetail('');
+                                            } else {
+                                                setSaleProcedureDetail(e.target.value);
+                                            }
+                                        }} 
+                                        className="input-field w-full rounded-lg p-3 text-sm cursor-pointer border-l-4 border-l-purple-500"
+                                    >
+                                        <option value="">Selecione...</option>
+                                        {procedures.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
+                                        <option value="__custom__">✏️ Outro (Digitar Novo...)</option>
+                                    </select>
+                                )}
                             </div>
                         )}
 
                         <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Nome do Cliente</label>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Nome do Cliente <span className="text-red-400">*</span></label>
                             <input type="text" value={saleClient} onChange={e => setSaleClient(e.target.value)} placeholder="Ex: Maria Silva" className="input-field w-full rounded-lg p-3 text-sm" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] font-bold text-blue-400 uppercase mb-1 block">E-mail <span className="text-red-400">*</span></label>
+                                <input type="email" value={saleEmail} onChange={e => setSaleEmail(e.target.value)} placeholder="maria@exemplo.com" className="input-field w-full rounded-lg p-3 text-xs" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-green-400 uppercase mb-1 block">Telefone / WhatsApp <span className="text-red-400">*</span></label>
+                                <input type="tel" value={salePhone} onChange={e => setSalePhone(e.target.value)} placeholder="(22) 99999-8888" className="input-field w-full rounded-lg p-3 text-xs" />
+                            </div>
                         </div>
 
                         <div>
@@ -318,6 +371,8 @@ export default function SalesTab() {
                     <div className="grid grid-cols-2 gap-4">
                         <div><p className="text-[10px] uppercase text-gray-500 font-bold">Cliente</p><p className="text-white font-bold text-lg">{detailSale.client} {detailSale.gender ? <span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-800 text-gray-400 ml-2">{detailSale.gender}</span> : ''}</p></div>
                         <div className="text-right"><p className="text-[10px] uppercase text-gray-500 font-bold">Valor</p><p className="text-green-400 font-mono text-lg">{formatCurrency(detailSale.value)}</p></div>
+                        <div><p className="text-[10px] uppercase text-blue-400 font-bold">E-mail</p><p className="text-gray-300 text-xs font-mono truncate" title={detailSale.email}>{detailSale.email || '-'}</p></div>
+                        <div className="text-right"><p className="text-[10px] uppercase text-green-400 font-bold">Telefone</p><p className="text-gray-300 text-xs font-mono">{detailSale.phone || '-'}</p></div>
                         <div><p className="text-[10px] uppercase text-gray-500 font-bold">Tipo</p><p className="text-gray-300">{detailSale.type} {detailSale.procedureDetail ? <span className="text-blue-300">({detailSale.procedureDetail})</span> : ''}</p></div>
                         <div className="text-right"><p className="text-[10px] uppercase text-gray-500 font-bold">Vendedora</p><p className="text-pink-400 font-bold">{detailSale.seller}</p></div>
                         <div><p className="text-[10px] uppercase text-gray-500 font-bold">Data Lead</p><p className="text-gray-400">{formatDateBR(detailSale.leadDate)}</p></div>

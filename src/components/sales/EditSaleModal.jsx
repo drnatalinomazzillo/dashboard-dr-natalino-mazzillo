@@ -22,6 +22,9 @@ export default function EditSaleModal({ saleIndex, onClose }) {
     const [seller, setSeller] = useState('Amanda');
     const [value, setValue] = useState('');
     const [gender, setGender] = useState('Mulher');
+    const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
+    const [isCustomProcedure, setIsCustomProcedure] = useState(false);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -33,17 +36,22 @@ export default function EditSaleModal({ saleIndex, onClose }) {
         setSource(s.source || 'Tráfego Pago');
         setTag(s.tag || '');
         setType(s.type || 'Consulta');
-        setProcedureDetail(s.procedureDetail || '');
+        const pDetail = s.procedureDetail || '';
+        setProcedureDetail(pDetail);
+        const existsInList = procedures.some(p => p.name === pDetail);
+        setIsCustomProcedure(!existsInList && pDetail !== '');
         setLocation(s.location || 'Cabo Frio');
         setSeller(s.seller || 'Amanda');
         setValue(s.value);
         setGender(s.gender || 'Mulher');
+        setEmail(s.email || '');
+        setPhone(s.phone || '');
         if (s.status === 'Cancelado / Não Compareceu' || s.status === 'Cancelado') {
             setStatus('Cancelado');
         } else {
             setStatus(s.status || 'Realizado');
         }
-    }, [s]);
+    }, [s, procedures]);
 
     if (!s) return null;
 
@@ -56,7 +64,7 @@ export default function EditSaleModal({ saleIndex, onClose }) {
             rowIndex: saleIndex,
             date, leadDate, client,
             value: val, seller, status, source, tag, type,
-            procedureDetail, consultationDate, location, gender
+            procedureDetail, consultationDate, location, gender, email, phone
         };
 
         setSaving(true);
@@ -72,7 +80,7 @@ export default function EditSaleModal({ saleIndex, onClose }) {
                             value: val, seller,
                             status: status === 'Cancelado' ? 'Cancelado / Não Compareceu' : status,
                             source, tag, type,
-                            procedureDetail, consultationDate, location, gender
+                            procedureDetail, consultationDate, location, gender, email, phone
                         }
                     }
                 });
@@ -122,6 +130,17 @@ export default function EditSaleModal({ saleIndex, onClose }) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
+                        <label className="text-[10px] font-bold text-blue-400 uppercase mb-1 block">E-mail</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="input-field w-full rounded-lg p-3 text-xs" placeholder="email@exemplo.com" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-green-400 uppercase mb-1 block">Telefone / WhatsApp</label>
+                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="input-field w-full rounded-lg p-3 text-xs" placeholder="(22) 99999-8888" />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
                         <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Origem</label>
                         <select value={source} onChange={e => setSource(e.target.value)} className="input-field w-full rounded-lg p-3 text-sm cursor-pointer">
                             <option value="Tráfego Pago">Tráfego Pago (Ads)</option>
@@ -152,11 +171,45 @@ export default function EditSaleModal({ saleIndex, onClose }) {
                     </div>
                     {type === 'Procedimento' && (
                         <div>
-                            <label className="text-[10px] font-bold text-purple-300 uppercase mb-1 block">Qual Procedimento?</label>
-                            <select value={procedureDetail} onChange={e => setProcedureDetail(e.target.value)} className="input-field w-full rounded-lg p-3 text-sm cursor-pointer border-l-4 border-l-purple-500">
-                                <option value="">Selecione...</option>
-                                {procedures.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
-                            </select>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-bold text-purple-300 uppercase block">Qual Procedimento?</label>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setIsCustomProcedure(!isCustomProcedure);
+                                        setProcedureDetail('');
+                                    }}
+                                    className="text-[10px] text-purple-400 hover:text-purple-300 underline font-semibold cursor-pointer"
+                                >
+                                    {isCustomProcedure ? '← Selecionar' : '✏️ Digitar'}
+                                </button>
+                            </div>
+                            {isCustomProcedure ? (
+                                <input 
+                                    type="text" 
+                                    value={procedureDetail} 
+                                    onChange={e => setProcedureDetail(e.target.value)} 
+                                    placeholder="Digite o procedimento..." 
+                                    className="input-field w-full rounded-lg p-3 text-sm border-l-4 border-l-purple-500" 
+                                />
+                            ) : (
+                                <select 
+                                    value={procedureDetail} 
+                                    onChange={e => {
+                                        if (e.target.value === '__custom__') {
+                                            setIsCustomProcedure(true);
+                                            setProcedureDetail('');
+                                        } else {
+                                            setProcedureDetail(e.target.value);
+                                        }
+                                    }} 
+                                    className="input-field w-full rounded-lg p-3 text-sm cursor-pointer border-l-4 border-l-purple-500"
+                                >
+                                    <option value="">Selecione...</option>
+                                    {procedures.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
+                                    <option value="__custom__">✏️ Outro (Digitar Novo...)</option>
+                                </select>
+                            )}
                         </div>
                     )}
                 </div>
