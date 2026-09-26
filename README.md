@@ -23,7 +23,17 @@ Sistema de gestão estratégica, inteligência analítica de vendas, acompanhame
 * Cálculo automático de impostos fiscais (+12,15%) e CPL real por campanha.
 * Exclusão inteligente de campanhas de engajamento/branding no cálculo de leads de conversão direta.
 
-### 3. 🤝 Integração Kommo CRM
+### 3. ⚡ Meta Conversions API (CAPI) & "Botão Mágico" (`meta_capi_sync.gs`)
+* **Fluxo de Preparação Semi-Automático**: Menu `⚡ Meta CAPI` na planilha para auditar e preparar apenas vendas selecionadas com o mouse ou recentes (últimos 7 dias).
+* **Normalização Estrita na aba `META_COMPRA`**:
+  * Event ID padronizado (`COMPRA-YYYYMMDD-NOME-COMPLETO`).
+  * Horário ISO com fuso (`YYYY-MM-DDT12:00:00-03:00`).
+  * Classificação padrão (`procedimento confirmado` / `consulta confirmada`).
+  * Concatenação de Origem + Tag.
+* **Dupla Trava Anti-Duplicação**: Coluna de status na planilha + deduplicação nativa por `event_id` nos servidores da Meta.
+* **Envio Noturno Automático**: Cron diário via Apps Script para despachar compras pendentes na madrugada.
+
+### 4. 🤝 Integração Kommo CRM
 * Webhooks em tempo real com diferenciação automática de funis:
   * **Funil 1 - Consulta** (`pipeline_id: 12121252`)
   * **Funil 2 - Procedimento** (`pipeline_id: 12197743`)

@@ -30,6 +30,23 @@ Sua arquitetura fullstack atual combina um frontend moderno em **React + Vite + 
   - Acionador do Apps Script vinculado à função `importarDadosOntemAutomatico`, agendado para rodar toda madrugada (05h00 às 06h00) na nuvem do Google.
   - Trava anti-duplicação (`removerLinhasDaData`) ativa para garantir que reexecuções nunca dupliquem registros.
 
+### 3. Integração Meta Conversions API (CAPI) & "Botão Mágico" (`meta_capi_sync.gs`)
+* **Fluxo Seguro com "Botão Mágico" no Sheets (`⚡ Meta CAPI`)**:
+  - Função `prepararVendasSelecionadas`: O gestor audita as vendas conferidas na aba `Vendas`, seleciona as linhas com o mouse e executa.
+  - Normalização completa para a aba `META_COMPRA` com colunas de envio (O, P, Q) limpas.
+  - Mapeamento estrito:
+    - Data/Hora ISO com fuso (`YYYY-MM-DDT12:00:00-03:00`).
+    - Event ID padronizado: `COMPRA-YYYYMMDD-PRIMEIRO-SEGUNDO-SOBRENOMES` (sem acentos, maiúsculo, hifens).
+    - Coluna C e Coluna I deixadas vazias por especificação da clínica.
+    - Tipo normalizado em `'procedimento confirmado'` ou `'consulta confirmada'`.
+    - Origem concatenada com a Tag completa (ex: `Tráfego Pago (Ref: ...)`, `Reativação Cliente (Lead Antigo) ORGÂNICO`).
+* **Proteção Anti-Duplicação em Múltiplas Camadas**:
+  - Trava da Planilha: Coluna O com `TRUE` ignora o evento de imediato.
+  - Trava da Meta: O `event_id` único faz o descarte automático de duplicidades na API da Meta.
+  - Trava de Concorrência: `LockService` no Apps Script.
+* **Envio Noturno Automatizado (Cron)**:
+  - Função `executarSyncNoturnoMetaCapi` pronta para rodar diariamente via acionador no Apps Script (03h00 às 04h00), enviando todas as compras preparadas com hash SHA-256 e gravando recibos de resposta da Meta.
+
 ---
 
 ## 🗺️ Planejamento Estratégico: Migração para Supabase (Meta 2027)

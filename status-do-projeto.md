@@ -37,6 +37,31 @@ Documento de controle de status, pendências, automações e melhorias estrutura
   - Execução da carga de 21/09 a 25/09: **50 linhas inseridas** (10 conjuntos por dia), R$ 3.010,24 de investimento bruto e 78 leads.
   - Acionador do Apps Script configurado para rodar `importarDadosOntemAutomatico` toda madrugada (05h00 às 06h00).
 
+### 3. Integração Meta Conversions API (CAPI) & "Botão Mágico" (`meta_capi_sync.gs`)
+* **Fluxo Semi-Automático de Controle Total ("Botão Mágico")**:
+  - Menu no Google Sheets `⚡ Meta CAPI` com a opção **"🎯 1. Preparar Apenas Linhas Selecionadas com o Mouse"**.
+  - O gestor audita e confere as vendas na aba `Vendas`, seleciona as linhas com o mouse e clica no botão.
+  - Os dados são higienizados e transferidos para a aba `META_COMPRA` com colunas de auditoria (O, P, Q) em branco prontas para o envio.
+* **Padronização Exata das Colunas na aba `META_COMPRA`**:
+  - **Coluna A (`event_name`)**: `'Purchase'`.
+  - **Coluna B (`event_time`)**: `YYYY-MM-DDT12:00:00-03:00` (ISO completo com horário e timezone -03:00).
+  - **Coluna C**: Em branco `""` (sem Action Source desnecessário).
+  - **Coluna D (`event_id`)**: `COMPRA-YYYYMMDD-PRIMEIRO-SEGUNDO-SOBRENOMES` (padronizado em caixa alta, sem acentos, com hifens, ex: `COMPRA-20260924-PAULA-FRIZO-OSHIKAWA`).
+  - **Colunas E e F**: Primeiro Nome (`Paula`) e Sobrenome (`Frizo Oshikawa`).
+  - **Colunas G e H**: E-mail e Telefone com DDI (`5522981731626`).
+  - **Coluna I**: Em branco `""` (External ID desnecessário).
+  - **Coluna J (`purchase_type`)**: Estritamente `'procedimento confirmado'` ou `'consulta confirmada'` (padronizado em minúsculas).
+  - **Coluna K (`location`)**: Unidade (`Cabo Frio` / `Barra da Tijuca`).
+  - **Coluna L (`sale_origin`)**: Origem concatenada com a Tag completa (ex: `Tráfego Pago (Ref: LMCFUHD-50)-Novos-Criativos-Agosto` ou `Reativação Cliente (Lead Antigo) ORGÂNICO`).
+  - **Coluna M e N**: Valor da Venda numérico (`55000`) e Moeda (`BRL`).
+  - **Colunas O, P e Q**: `Status` (`TRUE` após envio), `Sent At` (data/hora) e `Response` (FBTrace ID retornado pela Meta).
+* **Dupla Trava Anti-Duplicação**:
+  - **Camada Planilha**: A função `syncMetaCompra` pula imediatamente qualquer linha com `TRUE` na Coluna O (`sentFlag === 'TRUE'`).
+  - **Camada Meta CAPI**: O `event_id` único no payload garante que a própria Meta descarte duplicidades nas últimas 48h a 7 dias.
+  - **Trava de Preparação**: Checagem de Coluna D na inserção impede que vendas já existentes na `META_COMPRA` sejam adicionadas novamente.
+* **Cron Noturno Agendado**:
+  - Função `executarSyncNoturnoMetaCapi` configurada no acionador diário do Google Apps Script (03h00 às 04h00), despachando compras pendentes na nuvem com hash SHA-256 e feedback linha a linha.
+
 ---
 
 ## 🗺️ Roadmap Estratégico: Migração para Supabase & Carga Histórica 2026 (Meta 2027)
