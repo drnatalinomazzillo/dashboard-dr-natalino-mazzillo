@@ -10,7 +10,7 @@ import { marked } from 'marked';
 import Chart from 'chart.js/auto';
 import Modal from '../common/Modal';
 import CustomDropdown from '../common/CustomDropdown';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Line, Bar, LabelList, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
 function generateEvolutionData(filteredSales, marketing, filters) {
     const { period, filterStart, filterEnd, filterLocation, filterCampaignObjective } = filters;
@@ -51,7 +51,7 @@ function generateEvolutionData(filteredSales, marketing, filters) {
     if (marketing) {
         marketing.forEach(m => {
             let passLoc = true;
-            let investmentToAdd = m.investment || 0;
+            let investmentToAdd = (m.investment || 0) * 1.1215; // Incorpora impostos de 12.15%
             let leadsToAdd = m.leads || 0;
 
             if (filterLocation) {
@@ -118,7 +118,7 @@ function generateEvolutionData(filteredSales, marketing, filters) {
                     const key = getFormatKey(dStr);
                     
                     if (!key) continue;
-                    if (!map.has(key)) map.set(key, { key, leads: 0, invest: 0, consultas: 0, faturamento: 0 });
+                    if (!map.has(key)) map.set(key, { key, leads: 0, invest: 0, consultas: 0, procedimentos: 0, faturamento: 0 });
                     const entry = map.get(key);
                     entry.leads += valPerDayLeads;
                     entry.invest += valPerDayInvest;
@@ -131,13 +131,14 @@ function generateEvolutionData(filteredSales, marketing, filters) {
         filteredSales.forEach(s => {
             const key = getFormatKey(s.date);
             if (!key) return;
-            if (!map.has(key)) map.set(key, { key, leads: 0, invest: 0, consultas: 0, faturamento: 0 });
+            if (!map.has(key)) map.set(key, { key, leads: 0, invest: 0, consultas: 0, procedimentos: 0, faturamento: 0 });
             const entry = map.get(key);
             
             if (s.type === 'Consulta') {
                 entry.consultas += 1;
                 entry.faturamento += parseFloat(s.value) || 0;
             } else if (s.type === 'Procedimento') {
+                entry.procedimentos = (entry.procedimentos || 0) + 1;
                 entry.faturamento += parseFloat(s.value) || 0;
             }
         });
@@ -145,12 +146,43 @@ function generateEvolutionData(filteredSales, marketing, filters) {
 
     const data = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
     
-    return data.map(d => ({
-        label: formatLabel(d.key),
-        CPL: d.leads > 0 ? d.invest / d.leads : 0,
-        Consultas: d.consultas,
-        Faturamento: d.faturamento
-    }));
+    const maxInvest = Math.max(...data.map(d => d.invest), 0);
+    const maxFat = Math.max(...data.map(d => d.faturamento), 0);
+    const maxLeads = Math.max(...data.map(d => d.leads), 0);
+    const maxCons = Math.max(...data.map(d => d.consultas), 0);
+    const maxProc = Math.max(...data.map(d => d.procedimentos || 0), 0);
+    const maxCpl = Math.max(...data.map(d => d.leads > 0 ? d.invest / d.leads : 0), 0);
+
+    return data.map(d => {
+        const cplVal = d.leads > 0 ? d.invest / d.leads : 0;
+        return {
+            label: formatLabel(d.key),
+            
+            // Valores Reais
+            realInvestimento: parseFloat(d.invest.toFixed(2)),
+            realFaturamento: d.faturamento,
+            realLeads: Math.round(d.leads),
+            realConsultas: d.consultas,
+            realProcedimentos: d.procedimentos || 0,
+            realCPL: cplVal,
+
+            // Valores Normalizados (% do pico no período)
+            normInvestimento: maxInvest > 0 ? parseFloat(((d.invest / maxInvest) * 100).toFixed(1)) : 0,
+            normFaturamento: maxFat > 0 ? parseFloat(((d.faturamento / maxFat) * 100).toFixed(1)) : 0,
+            normLeads: maxLeads > 0 ? parseFloat(((d.leads / maxLeads) * 100).toFixed(1)) : 0,
+            normConsultas: maxCons > 0 ? parseFloat(((d.consultas / maxCons) * 100).toFixed(1)) : 0,
+            normProcedimentos: maxProc > 0 ? parseFloat((((d.procedimentos || 0) / maxProc) * 100).toFixed(1)) : 0,
+            normCPL: maxCpl > 0 ? parseFloat(((cplVal / maxCpl) * 100).toFixed(1)) : 0,
+
+            // Atributos diretos para modo absoluto
+            Investimento: parseFloat(d.invest.toFixed(2)),
+            Faturamento: d.faturamento,
+            Leads: Math.round(d.leads),
+            Consultas: d.consultas,
+            Procedimentos: d.procedimentos || 0,
+            CPL: cplVal
+        };
+    });
 }
 
 function FunnelCard({ title, icon, borderColor, iconColor, bgHeaderClass, leads, invest, cpl, cons, realCons, procs, revenueProc, revenueCons = 0, hideLeads }) {
@@ -254,6 +286,17 @@ export default function AnalyticsTab() {
     // UI toggles
     const [performanceOpen, setPerformanceOpen] = useState(true);
     const [logOpen, setLogOpen] = useState(false);
+    const [chartScaleMode, setChartScaleMode] = useState('relative'); // 'relative' (%) or 'absolute'
+    const [showDataLabels, setShowDataLabels] = useState(true);
+    const [visibleLines, setVisibleLines] = useState({
+        faturamento: true,
+        investimento: true,
+        leads: true,
+        consultas: true,
+        procedimentos: true,
+        cpl: false
+    });
+    const toggleLine = (key) => setVisibleLines(prev => ({ ...prev, [key]: !prev[key] }));
 
     // AI
     const [aiHTML, setAiHTML] = useState('');
@@ -799,35 +842,298 @@ export default function AnalyticsTab() {
 
 
 
-                    {/* EVOLUTION CHART */}
+                    {/* EVOLUTION CHART - COMBO (BARRAS DE TRÁFEGO + LINHAS DE FATURAMENTO E FUNIL) */}
                     <div className="mb-6">
-                        <div className="flex items-center gap-2 mb-4">
-                            <i className="ph-fill ph-trend-up text-xl text-blue-400"></i>
-                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Evolução Temporal: CPL, Consultas e Faturamento</h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-2">
+                                <i className="ph-fill ph-trend-up text-xl text-blue-400"></i>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Evolução Temporal: Tráfego, Funil e Retorno</h3>
+                                    <p className="text-[10px] text-gray-400">
+                                        Tráfego em barras na base (R$) • Faturamento no topo (R$) • Funil de Vendas em linhas
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Chavinha para Ativar/Desativar Rótulos com Valores */}
+                            <button
+                                type="button"
+                                onClick={() => setShowDataLabels(prev => !prev)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-2.5 transition-all cursor-pointer border ${
+                                    showDataLabels 
+                                        ? 'bg-blue-600/15 border-blue-500/40 text-blue-300 shadow-sm shadow-blue-900/30' 
+                                        : 'bg-gray-900/70 border-gray-800 text-gray-400 hover:text-gray-300 hover:border-gray-700'
+                                }`}
+                                title="Ligar ou desligar os valores numéricos diretamente sobre as linhas e barras"
+                            >
+                                <span className="text-[11px] font-semibold text-gray-300">Rótulos no Gráfico:</span>
+                                <div className={`w-8 h-4 rounded-full transition-colors relative flex items-center p-0.5 ${showDataLabels ? 'bg-blue-500' : 'bg-gray-700'}`}>
+                                    <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 shadow-sm ${showDataLabels ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </div>
+                                <span className={`text-[11px] font-bold ${showDataLabels ? 'text-blue-400' : 'text-gray-500'}`}>
+                                    {showDataLabels ? 'ON' : 'OFF'}
+                                </span>
+                            </button>
                         </div>
-                        <div className="glass-panel p-4 rounded-xl relative z-0 h-80 w-full flex flex-col justify-center">
-                            {evolutionData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={evolutionData} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                                        <XAxis dataKey="label" stroke="#6b7280" tick={{fontSize: 10}} tickMargin={10} />
-                                        <YAxis yAxisId="left" stroke="#6b7280" tick={{fontSize: 10}} width={40} axisLine={false} tickLine={false} />
-                                        <YAxis yAxisId="right" orientation="right" stroke="#34d399" tick={{fontSize: 10}} width={60} axisLine={false} tickLine={false} tickFormatter={(val) => `R$${(val/1000).toFixed(1)}k`} />
-                                        <RechartsTooltip 
-                                            contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', color: '#f3f4f6' }}
-                                            labelStyle={{ color: '#9ca3af', marginBottom: '8px', fontWeight: 'bold' }}
-                                            formatter={(value, name) => {
-                                                if (name === 'Faturamento') return [formatCurrency(value), name];
-                                                if (name === 'CPL') return [formatCurrency(value), name];
-                                                return [value, name];
-                                            }}
+
+                        {/* Toggle metric chips */}
+                        <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                            <span className="text-[10px] uppercase font-bold text-gray-500 mr-1">Métricas:</span>
+                            {[
+                                { key: 'faturamento', label: 'Faturamento', color: '#34d399', border: 'border-emerald-500/40', text: 'text-emerald-300', bg: 'bg-emerald-500/15' },
+                                { key: 'investimento', label: 'Tráfego', color: '#38bdf8', border: 'border-sky-500/40', text: 'text-sky-300', bg: 'bg-sky-500/15' },
+                                { key: 'leads', label: 'Leads', color: '#fbbf24', border: 'border-amber-500/40', text: 'text-amber-300', bg: 'bg-amber-500/15' },
+                                { key: 'consultas', label: 'Consultas', color: '#f472b6', border: 'border-pink-500/40', text: 'text-pink-300', bg: 'bg-pink-500/15' },
+                                { key: 'procedimentos', label: 'Procedimentos', color: '#c084fc', border: 'border-purple-500/40', text: 'text-purple-300', bg: 'bg-purple-500/15' },
+                                { key: 'cpl', label: 'CPL Médio', color: '#818cf8', border: 'border-indigo-500/40', text: 'text-indigo-300', bg: 'bg-indigo-500/15' },
+                            ].map(item => {
+                                const active = visibleLines[item.key];
+                                return (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        onClick={() => toggleLine(item.key)}
+                                        className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                                            active 
+                                                ? `${item.bg} ${item.border} ${item.text} shadow-sm shadow-black/30` 
+                                                : 'bg-gray-900/60 border-gray-800 text-gray-500 opacity-60 hover:opacity-100 hover:text-gray-400'
+                                        }`}
+                                    >
+                                        <span 
+                                            className="w-2 h-2 rounded-full inline-block transition-transform" 
+                                            style={{ backgroundColor: active ? item.color : '#6b7280', transform: active ? 'scale(1)' : 'scale(0.8)' }} 
                                         />
-                                        <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                                        <Line yAxisId="left" type="monotone" dataKey="CPL" name="CPL" stroke="#818cf8" strokeWidth={3} dot={{ r: 4, fill: '#111827' }} activeDot={{ r: 6 }} />
-                                        <Line yAxisId="left" type="monotone" dataKey="Consultas" name="Consultas" stroke="#f472b6" strokeWidth={3} dot={{ r: 4, fill: '#111827' }} activeDot={{ r: 6 }} />
-                                        <Line yAxisId="right" type="monotone" dataKey="Faturamento" name="Faturamento" stroke="#34d399" strokeWidth={3} dot={{ r: 4, fill: '#111827' }} activeDot={{ r: 6 }} />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                                        {item.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Chart Container - Altura aumentada para 500px */}
+                        <div className="glass-panel p-5 rounded-2xl relative z-0 h-[500px] w-full flex flex-col justify-center">
+                            {evolutionData.length > 0 ? (
+                                (() => {
+                                    const maxLeadsInPeriod = Math.max(...evolutionData.map(d => d.Leads || 0), 100);
+                                    const maxConsInPeriod = Math.max(...evolutionData.map(d => d.Consultas || 0), 10);
+                                    const maxFatInPeriod = Math.max(...evolutionData.map(d => d.Faturamento || 0), 1000);
+                                    const maxInvestInPeriod = Math.max(...evolutionData.map(d => d.Investimento || 0), 100);
+
+                                    return (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <ComposedChart data={evolutionData} margin={{ top: 20, right: 35, left: 10, bottom: 10 }}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                                                <XAxis dataKey="label" stroke="#6b7280" tick={{fontSize: 11}} tickMargin={12} />
+                                                
+                                                {/* Eixo Esquerdo Calibrado: Leads (escala suave para manter os leads entre 30% e 55% da altura) */}
+                                                <YAxis 
+                                                    yAxisId="leads" 
+                                                    stroke="#6b7280" 
+                                                    tick={{fontSize: 10}} 
+                                                    width={40} 
+                                                    axisLine={false} 
+                                                    tickLine={false} 
+                                                    domain={[0, Math.round(maxLeadsInPeriod * 1.9)]}
+                                                />
+                                                
+                                                {/* Eixo Direito: Faturamento em R$ (faixa superior de 50% a 95%) */}
+                                                <YAxis 
+                                                    yAxisId="revenue" 
+                                                    orientation="right" 
+                                                    stroke="#34d399" 
+                                                    tick={{fontSize: 10}} 
+                                                    width={65} 
+                                                    axisLine={false} 
+                                                    tickLine={false} 
+                                                    domain={[0, Math.round(maxFatInPeriod * 1.15)]}
+                                                    tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`} 
+                                                />
+
+                                                {/* Eixo Oculto Calibrado para Tráfego: Máximo em ~45% da altura com zero padding na base */}
+                                                <YAxis 
+                                                    yAxisId="traffic" 
+                                                    hide={true} 
+                                                    domain={[0, Math.round(maxInvestInPeriod * 2.2)]} 
+                                                    padding={{ top: 0, bottom: 0 }}
+                                                />
+
+                                                {/* Eixo Oculto Calibrado para Consultas, Procedimentos e CPL: Máximo em ~38% da altura */}
+                                                <YAxis 
+                                                    yAxisId="funnelSub" 
+                                                    hide={true} 
+                                                    domain={[0, Math.round(maxConsInPeriod * 2.8)]} 
+                                                />
+
+                                                <RechartsTooltip 
+                                                    contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '10px', color: '#f3f4f6', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)' }}
+                                                    labelStyle={{ color: '#9ca3af', marginBottom: '8px', fontWeight: 'bold' }}
+                                                    formatter={(value, name, item) => {
+                                                        const p = item.payload;
+                                                        if (name === 'Faturamento') {
+                                                            return [formatCurrency(p.Faturamento), name];
+                                                        }
+                                                        if (name === 'Tráfego') {
+                                                            return [formatCurrency(p.Investimento), name];
+                                                        }
+                                                        if (name === 'CPL Médio') {
+                                                            return [formatCurrency(p.CPL), name];
+                                                        }
+                                                        if (name === 'Leads') {
+                                                            return [`${p.Leads} leads`, name];
+                                                        }
+                                                        if (name === 'Consultas') {
+                                                            return [`${p.Consultas} consultas`, name];
+                                                        }
+                                                        if (name === 'Procedimentos') {
+                                                            return [`${p.Procedimentos} procedimentos`, name];
+                                                        }
+                                                        return [value, name];
+                                                    }}
+                                                />
+                                                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '15px' }} />
+
+                                                {/* 1. Tráfego como BARRAS Elegantes na Base com Valores Diretos */}
+                                                {visibleLines.investimento && (
+                                                    <Bar 
+                                                        yAxisId="traffic" 
+                                                        dataKey="Investimento" 
+                                                        name="Tráfego" 
+                                                        fill="#38bdf8" 
+                                                        fillOpacity={0.28} 
+                                                        stroke="#38bdf8" 
+                                                        strokeWidth={1.5} 
+                                                        radius={[4, 4, 0, 0]} 
+                                                        maxBarSize={30} 
+                                                    >
+                                                        {showDataLabels && (
+                                                            <LabelList 
+                                                                dataKey="Investimento" 
+                                                                position="top" 
+                                                                formatter={(val) => val > 0 ? `R$${(val/1000).toFixed(1)}k` : ''} 
+                                                                style={{ fill: '#38bdf8', fontSize: '9px', fontWeight: 'bold' }} 
+                                                            />
+                                                        )}
+                                                    </Bar>
+                                                )}
+
+                                                {/* 2. Faturamento como LINHA Marcante no Topo (50% a 95%) */}
+                                                {visibleLines.faturamento && (
+                                                    <Line 
+                                                        yAxisId="revenue" 
+                                                        type="monotone" 
+                                                        dataKey="Faturamento" 
+                                                        name="Faturamento" 
+                                                        stroke="#34d399" 
+                                                        strokeWidth={3} 
+                                                        dot={{ r: 4, fill: '#111827', stroke: '#34d399', strokeWidth: 2 }} 
+                                                        activeDot={{ r: 6 }} 
+                                                    >
+                                                        {showDataLabels && (
+                                                            <LabelList 
+                                                                dataKey="Faturamento" 
+                                                                position="top" 
+                                                                offset={10} 
+                                                                formatter={(val) => val > 0 ? (val >= 1000 ? `R$${(val/1000).toFixed(0)}k` : `R$${val}`) : ''} 
+                                                                style={{ fill: '#34d399', fontSize: '9px', fontWeight: 'bold' }} 
+                                                            />
+                                                        )}
+                                                    </Line>
+                                                )}
+
+                                                {/* 3. Leads em LINHA na Faixa Intermediária (30% a 53%) */}
+                                                {visibleLines.leads && (
+                                                    <Line 
+                                                        yAxisId="leads" 
+                                                        type="monotone" 
+                                                        dataKey="Leads" 
+                                                        name="Leads" 
+                                                        stroke="#fbbf24" 
+                                                        strokeWidth={2.5} 
+                                                        dot={{ r: 3, fill: '#111827' }} 
+                                                        activeDot={{ r: 5 }} 
+                                                    >
+                                                        {showDataLabels && (
+                                                            <LabelList 
+                                                                dataKey="Leads" 
+                                                                position="top" 
+                                                                offset={8} 
+                                                                formatter={(val) => val > 0 ? `${val}` : ''} 
+                                                                style={{ fill: '#fbbf24', fontSize: '9px', fontWeight: 'bold' }} 
+                                                            />
+                                                        )}
+                                                    </Line>
+                                                )}
+
+                                                {/* 4. Consultas, Procedimentos e CPL com ondulação visível */}
+                                                {visibleLines.consultas && (
+                                                    <Line 
+                                                        yAxisId="funnelSub" 
+                                                        type="monotone" 
+                                                        dataKey="Consultas" 
+                                                        name="Consultas" 
+                                                        stroke="#f472b6" 
+                                                        strokeWidth={2.5} 
+                                                        dot={{ r: 3, fill: '#111827' }} 
+                                                        activeDot={{ r: 5 }} 
+                                                    >
+                                                        {showDataLabels && (
+                                                            <LabelList 
+                                                                dataKey="Consultas" 
+                                                                position="top" 
+                                                                offset={8} 
+                                                                formatter={(val) => val > 0 ? `${val}` : ''} 
+                                                                style={{ fill: '#f472b6', fontSize: '9px', fontWeight: 'bold' }} 
+                                                            />
+                                                        )}
+                                                    </Line>
+                                                )}
+                                                {visibleLines.procedimentos && (
+                                                    <Line 
+                                                        yAxisId="funnelSub" 
+                                                        type="monotone" 
+                                                        dataKey="Procedimentos" 
+                                                        name="Procedimentos" 
+                                                        stroke="#c084fc" 
+                                                        strokeWidth={2.5} 
+                                                        dot={{ r: 3, fill: '#111827' }} 
+                                                        activeDot={{ r: 5 }} 
+                                                    >
+                                                        {showDataLabels && (
+                                                            <LabelList 
+                                                                dataKey="Procedimentos" 
+                                                                position="top" 
+                                                                offset={8} 
+                                                                formatter={(val) => val > 0 ? `${val}` : ''} 
+                                                                style={{ fill: '#c084fc', fontSize: '9px', fontWeight: 'bold' }} 
+                                                            />
+                                                        )}
+                                                    </Line>
+                                                )}
+                                                {visibleLines.cpl && (
+                                                    <Line 
+                                                        yAxisId="funnelSub" 
+                                                        type="monotone" 
+                                                        dataKey="CPL" 
+                                                        name="CPL Médio" 
+                                                        stroke="#818cf8" 
+                                                        strokeWidth={2} 
+                                                        dot={{ r: 3, fill: '#111827' }} 
+                                                        activeDot={{ r: 5 }} 
+                                                    >
+                                                        {showDataLabels && (
+                                                            <LabelList 
+                                                                dataKey="CPL" 
+                                                                position="top" 
+                                                                offset={8} 
+                                                                formatter={(val) => val > 0 ? `R$${val.toFixed(0)}` : ''} 
+                                                                style={{ fill: '#818cf8', fontSize: '9px', fontWeight: 'bold' }} 
+                                                            />
+                                                        )}
+                                                    </Line>
+                                                )}
+                                            </ComposedChart>
+                                        </ResponsiveContainer>
+                                    );
+                                })()
                             ) : (
                                 <div className="text-center text-gray-500 text-sm">Nenhum dado disponível para o período selecionado.</div>
                             )}

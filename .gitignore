@@ -36,3 +36,7 @@ temp_script.js
 *.gs
 *.gs.gs
 
+# Environment variables
+.env
+.env.*
+
