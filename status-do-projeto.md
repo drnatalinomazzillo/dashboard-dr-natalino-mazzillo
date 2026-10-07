@@ -1,18 +1,43 @@
-# Status do Projeto - Dashboard Dr. Natalino Mazzillo - 26/09/2026
+# Status do Projeto - Dashboard Dr. Natalino Mazzillo - 06/10/2026
 
 Documento de controle de status, pendências, automações e melhorias estruturais do projeto.
 
 ---
 
-## 📌 Status Atual: Gráfico Temporal Calibrado & Automação Meta Ads 100% Ativa
+## 📌 Status Atual: Funil Cascata Global, Status de Procedimentos e Expurgo de Cancelamentos
 > [!NOTE]
-> **Fim do Trabalho Manual de Tráfego e Fidelidade Visual Máxima**
-> 1. O gráfico de evolução temporal na aba "Resultados" ([AnalyticsTab.jsx](file:///d:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/src/components/analytics/AnalyticsTab.jsx)) está operando em arquitetura híbrida `ComposedChart` com proporções perfeitas (zero-padding), eixos hierarquizados e rótulos numéricos ativáveis por chavinha.
-> 2. O gargalo da conta de desenvolvedor da Meta foi superado através da **Zernio API** integrada em [ImportacaoMeta.gs.gs](file:///d:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/ImportacaoMeta.gs.gs). O período atrasado (21 a 25/09) foi importado com paridade de 100% contra a planilha histórica e o acionador automático diário já está ativo.
+> **Consistência de Negócio e Visão Global da Operação**
+> 1. **Procedimentos Cancelados**: Descontados do faturamento líquido total e da evolução temporal, com medição da quantidade, taxa de cancelamento (%) e montante financeiro cancelado (R$).
+> 2. **Funil Cascata Global da Operação**: Implantado logo acima da evolução temporal (design inspirado no Simulador), consolidando o funil de toda a clínica de ponta a ponta.
+> 3. **Taxa de Comparecimento de Consultas**: Exibida em todos os cards do funil (`FunnelCard`) e detalhada no card de Status Consultas.
 
 ---
 
-## 🚀 Melhorias Realizadas nesta Sessão (26/09/2026)
+## 🚀 Melhorias Realizadas na Sessão Atual (06/10/2026)
+
+### 1. Gestão e Expurgo de Procedimentos Cancelados (Coluna K)
+* **Regra de Faturamento**: Procedimentos com status `"Cancelado"` ou `"Cancelado / Não Compareceu"` agora são expurgados do `total`, `totalProcedimento`, faturamentos segmentados e da curva diária da evolução temporal.
+* **Métrica Financeira Perdida**: Contabilização do `revenueProcCancelado` (R$ financeiro perdido) e exibição em destaque com badge negativo.
+* **Taxa de Cancelamento**: Cálculo da proporção de cancelamentos sobre o total bruto de procedimentos.
+
+### 2. Novo Card "Status Procedimentos" e KPIs Simétricos
+* Criação do card dedicado **"Status Procedimentos"** ao lado de Vendas Procedimentos: Realizado (%), Agendado (%) e Cancelado (%) com valor financeiro cancelado.
+* Atualização do card **"Status Consultas"** para incluir as porcentagens de Realizada (taxa de comparecimento), Agendada e Cancelada.
+* **Preservação dos Ciclos**: Mantida a sequência exata dos 3 cards de ciclo (`Lead > Consulta`, `Lead > Procedimento`, `Consulta > Procedimento`).
+
+### 3. Taxa de Comparecimento nos Cards do Funil (`FunnelCard`)
+* Bloco `2. Consultas` na Matriz 3x3 agora exibe: `{cons} ({realCons} Realiz. • {taxaRealiz}%)`.
+
+### 4. Funil Cascata Global da Operação (Acima da Evolução Temporal)
+* Incorporação do design de alta fidelidade de [SimulatorTab.jsx](file:///d:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/src/components/simulator/SimulatorTab.jsx) diretamente na tela de Resultados:
+  * **1. Leads Totais (100%)**: Leads, Investimento Real (+12,15%) e CPL Real $\to$ Chevron de Conversão Lead $\to$ Consulta.
+  * **2. Consultas (95%)**: Vendidas, Realizadas (% Comparecimento) e CPA Consulta $\to$ Chevron de Conversão Consulta $\to$ Procedimento.
+  * **3. Procedimentos Válidos (90%)**: Vendas líquidas, Cancelados (% e R$ cancelado) e CPA Procedimento $\to$ Chevron de Ticket Médio.
+  * **4. Faturamento Líquido Real (85%)**: Faturamento Total e ROAS Consolidado da Operação.
+
+---
+
+## 🚀 Melhorias Anteriores (26/09/2026)
 
 ### 1. Gráfico Híbrido de Evolução Temporal (`ComposedChart`)
 * **Tráfego em Barras na Base**: Investimento plotado em colunas verticais com largura controlada (`maxBarSize={30}`) e padding zerado na base, garantindo proporção matemática real (ex: R$ 5k aparenta exatamente 1/3 visual de R$ 15k).

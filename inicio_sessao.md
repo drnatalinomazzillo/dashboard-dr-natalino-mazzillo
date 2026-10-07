@@ -7,7 +7,31 @@ Sua arquitetura fullstack atual combina um frontend moderno em **React + Vite + 
 
 ---
 
-## 🛠️ O que foi realizado na sessão atual (26/09/2026)
+## 🛠️ O que foi realizado na sessão atual (06/10/2026)
+
+### 1. Gestão e Expurgo de Procedimentos Cancelados (Coluna K)
+* **Regra de Faturamento**: Procedimentos com status `"Cancelado"` ou `"Cancelado / Não Compareceu"` agora são expurgados do faturamento líquido total (`total`), `totalProcedimento`, faturamentos segmentados e da curva diária da evolução temporal.
+* **Métrica Financeira Perdida**: Contabilização de `revenueProcCancelado` (R$ cancelado) e exibição com badge negativo.
+* **Métricas de Status de Procedimento**: Contabilização de `statProcRealizada`, `statProcAgendada`, `statProcCancelada`, `cProTotal` e `taxaProcCancelamento`.
+
+### 2. Simetria de KPIs no Topo (Consultas vs. Procedimentos)
+* **Status Consultas**: Exibição dos percentuais ao lado dos números (Realizada %, Agendada %, Cancelada %).
+* **Novo Card Status Procedimentos**: Realizado (%), Agendado (%) e Cancelado (%) com valor financeiro cancelado.
+* **Preservação dos Ciclos**: Mantida a sequência original dos 3 cards de ciclo (`Lead > Consulta`, `Lead > Procedimento`, `Consulta > Procedimento`).
+
+### 3. Taxa de Comparecimento de Consultas nos Cards do Funil (`FunnelCard`)
+* Exibição de `{cons} ({realCons} Realiz. • {taxaRealiz}%)` em todas as colunas da Matriz 3x3.
+
+### 4. Funil Cascata Global da Operação (Acima da Evolução Temporal)
+* Incorporação do design de alta fidelidade do Simulador diretamente na tela de Resultados:
+  * **1. Leads Totais (100%)**: Leads, Investimento Real (+12,15%) e CPL Real $\to$ Chevron de Conversão Lead $\to$ Consulta.
+  * **2. Consultas (95%)**: Vendidas, Realizadas (% Comparecimento) e CPA Consulta $\to$ Chevron de Conversão Consulta $\to$ Procedimento.
+  * **3. Procedimentos Válidos (90%)**: Vendas líquidas, Cancelados (% e R$ cancelado) e CPA Procedimento $\to$ Chevron de Ticket Médio.
+  * **4. Faturamento Líquido Real (85%)**: Faturamento Total e ROAS Consolidado da Operação.
+
+---
+
+## 🛠️ Sessão Anterior (26/09/2026)
 
 ### 1. Reformulação Completa do Gráfico de Evolução Temporal (`AnalyticsTab.jsx`)
 * **Transição para `ComposedChart`**: Substituição de gráfico simples de linhas por um gráfico híbrido avançado (`ComposedChart` do Recharts), unificando barras e linhas no mesmo plano sem sobreposição indevida.
