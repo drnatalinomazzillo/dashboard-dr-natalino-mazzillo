@@ -7,27 +7,32 @@ Sua arquitetura fullstack atual combina um frontend moderno em **React + Vite + 
 
 ---
 
-## 🛠️ O que foi realizado na sessão atual (06/10/2026)
+## 🛠️ O que foi realizado na sessão atual (07/10/2026)
 
-### 1. Gestão e Expurgo de Procedimentos Cancelados (Coluna K)
-* **Regra de Faturamento**: Procedimentos com status `"Cancelado"` ou `"Cancelado / Não Compareceu"` agora são expurgados do faturamento líquido total (`total`), `totalProcedimento`, faturamentos segmentados e da curva diária da evolução temporal.
-* **Métrica Financeira Perdida**: Contabilização de `revenueProcCancelado` (R$ cancelado) e exibição com badge negativo.
-* **Métricas de Status de Procedimento**: Contabilização de `statProcRealizada`, `statProcAgendada`, `statProcCancelada`, `cProTotal` e `taxaProcCancelamento`.
+### 1. Gestão e Expurgo de Procedimentos e Consultas Cancelados (Coluna K)
+* **Regra de Faturamento**: Procedimentos com status `"Cancelado"` ou `"Cancelado / Não Compareceu"` são 100% expurgados do faturamento líquido total (`total`), `totalProcedimento`, filiais e curva diária.
+* **Limpeza Visual do Faturamento**: Removido o badge poluído `(Expurgado -R$ X)` debaixo do faturamento total, mantendo o card limpo com Faturamento Líquido Real e Ticket Médio.
+* **Consultas Canceladas**: Rastreamento de `revenueConCancelado` (caso tenha valor preenchido na planilha) com exibição transparente no card de status: `Cancelada: X (Y%) • -R$ Valor`. Se o valor for R$ 0,00 na planilha, o dashboard não exibe valor zerado.
 
-### 2. Simetria de KPIs no Topo (Consultas vs. Procedimentos)
-* **Status Consultas**: Exibição dos percentuais ao lado dos números (Realizada %, Agendada %, Cancelada %).
-* **Novo Card Status Procedimentos**: Realizado (%), Agendado (%) e Cancelado (%) com valor financeiro cancelado.
+### 2. Simetria e Alinhamento de KPIs no Topo
+* **Alinhamento Uniforme**: Tanto o card de Status Consultas quanto o de Status Procedimentos alinhados à esquerda de forma idêntica.
+* **Card Status Procedimentos**: Badge de cancelamento retirado do cabeçalho e alocado diretamente na linha de "Cancelado".
 * **Preservação dos Ciclos**: Mantida a sequência original dos 3 cards de ciclo (`Lead > Consulta`, `Lead > Procedimento`, `Consulta > Procedimento`).
 
-### 3. Taxa de Comparecimento de Consultas nos Cards do Funil (`FunnelCard`)
-* Exibição de `{cons} ({realCons} Realiz. • {taxaRealiz}%)` em todas as colunas da Matriz 3x3.
+### 3. Funil Cascata Global da Operação
+* Posicionado dentro da **Visão Geral**, logo abaixo dos 3 Ciclos sequenciais.
+* Exibição de taxas de comparecimento `{cons} ({realCons} Realiz. • {taxaRealiz}%)` em todos os cards e etapas do funil.
 
-### 4. Funil Cascata Global da Operação (Acima da Evolução Temporal)
-* Incorporação do design de alta fidelidade do Simulador diretamente na tela de Resultados:
-  * **1. Leads Totais (100%)**: Leads, Investimento Real (+12,15%) e CPL Real $\to$ Chevron de Conversão Lead $\to$ Consulta.
-  * **2. Consultas (95%)**: Vendidas, Realizadas (% Comparecimento) e CPA Consulta $\to$ Chevron de Conversão Consulta $\to$ Procedimento.
-  * **3. Procedimentos Válidos (90%)**: Vendas líquidas, Cancelados (% e R$ cancelado) e CPA Procedimento $\to$ Chevron de Ticket Médio.
-  * **4. Faturamento Líquido Real (85%)**: Faturamento Total e ROAS Consolidado da Operação.
+### 4. Inteligência de Safra / Cohort (Vendas do Mês vs. Reativação)
+* Verificação com base real direta nas colunas da planilha (`s.date` da Coluna A, `s.leadDate` da Coluna G e `s.consultationDate` da Coluna M):
+  * **Etapa 2 (Consultas)**:
+    * `Lead do Mês`: Pacientes cuja data em que virou lead (Coluna G) é do mesmo mês calendário da venda.
+    * `+30 dias`: Leads originados no mês anterior (31 a 60 dias).
+    * `+60 dias`: Leads de meses anteriores (base fria / maturação longa).
+  * **Etapa 3 (Procedimentos)**:
+    * `Consulta do Mês`: Pacientes cuja consulta médica (Coluna M) ocorreu no mesmo mês do fechamento.
+    * `+30 dias`: Consultas realizadas no mês anterior.
+    * `+60 dias`: Consultas realizadas há mais de 60 dias.
 
 ---
 
