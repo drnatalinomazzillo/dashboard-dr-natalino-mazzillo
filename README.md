@@ -103,3 +103,4 @@ npm run build
 * [inicio_sessao.md](file:///d:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/inicio_sessao.md): Histórico cronológico das sessões de desenvolvimento, automações ativas e próximos passos.
 * [status-do-projeto.md](file:///d:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/status-do-projeto.md): Registro detalhado de melhorias, status das integrações e plano de migração para o Supabase.
 * [documentacao-integracao-kommo.md](file:///d:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/documentacao-integracao-kommo.md): Mapeamento de IDs, custom fields e fluxos de webhook do Kommo CRM.
+* [nova-integracao-kommo.md](file:///d:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/nova-integracao-kommo.md): Planejamento e checklist do rastreamento de Leads Orgânicos (Instagram Bio, Indicações) no Kommo e Dashboard.

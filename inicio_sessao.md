@@ -106,8 +106,10 @@ Foi definida a estratégia para migrar a camada de persistência e backend de **
 ## 🚀 Próximos Passos
 
 1. **Monitoramento do Piloto Automático**:
-   - Acompanhar a execução matinal automática do dia 26/09 entrando na planilha sem intervenção manual.
-2. **Webhook de Status da Consulta (Kommo CRM)**:
+   - Acompanhar a execução matinal automática entrando na planilha sem intervenção manual.
+2. **Nova Integração Kommo CRM (Leads Orgânicos)**:
+   - Implementar automação de Salesbot para taggear `(Ref: ig-link_in_bio)` e contabilização de leads orgânicos no topo do funil (detalhes completos em [nova-integracao-kommo.md](file:///d:/DR.%20NATALINO%20MAZZILLO/dashboard-drnatalino-mazzillo/nova-integracao-kommo.md)).
+3. **Webhook de Status da Consulta (Kommo CRM)**:
    - Implementar a atualização automática da Coluna K de "Agendado" para "Realizado" via webhook.
-3. **Início da Preparação do Supabase (Q4/2026)**:
+4. **Início da Preparação do Supabase (Q4/2026)**:
    - Criar o projeto no Supabase, desenhar o schema SQL das tabelas (`sales`, `marketing`, `creatives`, `configs`) e criar o script de importação do histórico de 2026.
