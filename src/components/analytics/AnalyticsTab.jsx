@@ -726,19 +726,24 @@ export default function AnalyticsTab() {
                                 {metrics.cohortCon && metrics.cohortCon.totalComData > 0 && (
                                     <div className="pt-2.5 border-t border-purple-500/20 flex flex-wrap items-center gap-2 text-xs">
                                         <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
-                                            <i className="ph-bold ph-calendar-blank"></i> Safra do Lead:
+                                            <i className="ph-bold ph-calendar-blank"></i> Safra & Maturação:
                                         </span>
-                                        <span className="bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Leads que entraram no próprio mês da venda">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                            <span>Lead do Mês: <strong>{metrics.cohortCon.mes}</strong> ({metrics.cohortCon.mesPct}%)</span>
-                                        </span>
-                                        <span className="bg-blue-950/60 border border-blue-500/40 text-blue-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Leads que entraram no mês anterior (31 a 60 dias)">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                                            <span>+30 dias: <strong>{metrics.cohortCon.d30}</strong> ({metrics.cohortCon.d30Pct}%)</span>
-                                        </span>
-                                        <span className="bg-purple-950/60 border border-purple-500/40 text-purple-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Leads que entraram há mais de 60 dias (Base antiga)">
+                                        <span className="bg-purple-950/70 border border-purple-400/40 text-purple-200 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Leads que entraram no mesmo mês da venda">
                                             <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-                                            <span>+60 dias: <strong>{metrics.cohortCon.d60}</strong> ({metrics.cohortCon.d60Pct}%)</span>
+                                            <span>Safra do Mês: <strong>{metrics.cohortCon.mes}</strong> ({metrics.cohortCon.mesPct}%)</span>
+                                        </span>
+                                        <span className="text-gray-600 font-bold hidden sm:inline">|</span>
+                                        <span className="bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Convertidos em até 30 dias após o lead (Ciclo rápido)">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                            <span>≤ 30 dias: <strong>{metrics.cohortCon.d30}</strong> ({metrics.cohortCon.d30Pct}%)</span>
+                                        </span>
+                                        <span className="bg-blue-950/60 border border-blue-500/40 text-blue-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Convertidos entre 31 e 60 dias após o lead (Ciclo médio)">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                            <span>31-60 dias: <strong>{metrics.cohortCon.d60}</strong> ({metrics.cohortCon.d60Pct}%)</span>
+                                        </span>
+                                        <span className="bg-amber-950/60 border border-amber-500/40 text-amber-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Convertidos após 60 dias (Reativação de base antiga)">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                            <span>+60 dias: <strong>{metrics.cohortCon.dMais}</strong> ({metrics.cohortCon.dMaisPct}%)</span>
                                         </span>
                                         {metrics.cohortCon.semData > 0 && (
                                             <span className="text-[10px] text-gray-500 ml-auto font-mono">
@@ -783,19 +788,24 @@ export default function AnalyticsTab() {
                                 {metrics.cohortProcCons && metrics.cohortProcCons.totalComData > 0 && (
                                     <div className="pt-2.5 border-t border-pink-500/20 flex flex-wrap items-center gap-2 text-xs">
                                         <span className="text-[10px] text-pink-300 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
-                                            <i className="ph-bold ph-calendar-blank"></i> Da Consulta ao Fechamento:
+                                            <i className="ph-bold ph-calendar-blank"></i> Da Consulta à Venda:
                                         </span>
-                                        <span className="bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos cuja consulta ocorreu no próprio mês da venda">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                            <span>Consulta do Mês: <strong>{metrics.cohortProcCons.mes}</strong> ({metrics.cohortProcCons.mesPct}%)</span>
-                                        </span>
-                                        <span className="bg-blue-950/60 border border-blue-500/40 text-blue-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos cuja consulta ocorreu no mês anterior (31 a 60 dias)">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                                            <span>+30 dias: <strong>{metrics.cohortProcCons.d30}</strong> ({metrics.cohortProcCons.d30Pct}%)</span>
-                                        </span>
-                                        <span className="bg-pink-950/60 border border-pink-500/40 text-pink-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos cuja consulta ocorreu há mais de 60 dias">
+                                        <span className="bg-pink-950/70 border border-pink-400/40 text-pink-200 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos cuja consulta ocorreu no mesmo mês civil da venda">
                                             <span className="w-1.5 h-1.5 rounded-full bg-pink-400"></span>
-                                            <span>+60 dias: <strong>{metrics.cohortProcCons.d60}</strong> ({metrics.cohortProcCons.d60Pct}%)</span>
+                                            <span>Consulta no Mês: <strong>{metrics.cohortProcCons.mes}</strong> ({metrics.cohortProcCons.mesPct}%)</span>
+                                        </span>
+                                        <span className="text-gray-600 font-bold hidden sm:inline">|</span>
+                                        <span className="bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos fechados em até 30 dias após a consulta">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                            <span>≤ 30 dias: <strong>{metrics.cohortProcCons.d30}</strong> ({metrics.cohortProcCons.d30Pct}%)</span>
+                                        </span>
+                                        <span className="bg-blue-950/60 border border-blue-500/40 text-blue-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos fechados entre 31 e 60 dias após a consulta">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                            <span>31-60 dias: <strong>{metrics.cohortProcCons.d60}</strong> ({metrics.cohortProcCons.d60Pct}%)</span>
+                                        </span>
+                                        <span className="bg-amber-950/60 border border-amber-500/40 text-amber-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos fechados após 60 dias da consulta (Maturação longa)">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                            <span>+60 dias: <strong>{metrics.cohortProcCons.dMais}</strong> ({metrics.cohortProcCons.dMaisPct}%)</span>
                                         </span>
                                         {metrics.cohortProcCons.semData > 0 && (
                                             <span className="text-[10px] text-gray-500 ml-auto font-mono">

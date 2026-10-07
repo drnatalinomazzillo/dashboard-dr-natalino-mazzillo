@@ -14,10 +14,10 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
     let revenueConCancelado = 0;
     let cProTotal = 0;
 
-    // Métricas de Safra / Cohort (Áudio 2 e 3)
-    let conCohortMes = 0, conCohort30 = 0, conCohort60 = 0, conCohortSemData = 0;
-    let procConsCohortMes = 0, procConsCohort30 = 0, procConsCohort60 = 0, procConsCohortSemData = 0;
-    let procLeadCohortMes = 0, procLeadCohort30 = 0, procLeadCohort60 = 0, procLeadCohortSemData = 0;
+    // Métricas de Safra & Ciclo / Cohort (Áudio 2, 3 e 4)
+    let conCohortMes = 0, conDays30 = 0, conDays60 = 0, conDaysMais60 = 0, conCohortSemData = 0;
+    let procConsMes = 0, procConsDays30 = 0, procConsDays60 = 0, procConsDaysMais60 = 0, procConsCohortSemData = 0;
+    let procLeadMes = 0, procLeadDays30 = 0, procLeadDays60 = 0, procLeadDaysMais60 = 0, procLeadCohortSemData = 0;
 
     // Segmentações por gênero e local
     let conRJ_Mulher = 0, realConRJ_Mulher = 0, procRJ_Mulher = 0;
@@ -116,20 +116,6 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
             }
         }
 
-        // Função auxiliar de cohort: compara mês/ano da venda com mês/ano de referência
-        const getCohortCategory = (saleDateStr, refDateStr) => {
-            if (!refDateStr || !saleDateStr) return 'semData';
-            const sYear = parseInt(saleDateStr.substring(0, 4));
-            const sMonth = parseInt(saleDateStr.substring(5, 7));
-            const rYear = parseInt(refDateStr.substring(0, 4));
-            const rMonth = parseInt(refDateStr.substring(5, 7));
-            if (isNaN(sYear) || isNaN(sMonth) || isNaN(rYear) || isNaN(rMonth)) return 'semData';
-            const diffMonths = (sYear - rYear) * 12 + (sMonth - rMonth);
-            if (diffMonths <= 0) return 'mes';
-            if (diffMonths === 1) return 'd30';
-            return 'd60';
-        };
-
         // Análise de Ciclo & Safra de Consultas (Lead ➔ Consulta)
         if (s.type === 'Consulta' && s.date) {
             if (s.leadDate) {
@@ -144,11 +130,19 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
                     timesConsulta.push(diffDays);
                 }
 
-                const cat = getCohortCategory(dSaleStr, dLeadStr);
-                if (cat === 'mes') conCohortMes++;
-                else if (cat === 'd30') conCohort30++;
-                else if (cat === 'd60') conCohort60++;
-                else conCohortSemData++;
+                // 1. Safra do Mês Civil
+                if (dLeadStr.substring(0, 7) === dSaleStr.substring(0, 7)) {
+                    conCohortMes++;
+                }
+
+                // 2. Faixas Contínuas de Dias
+                if (diffDays <= 30) {
+                    conDays30++;
+                } else if (diffDays <= 60) {
+                    conDays60++;
+                } else {
+                    conDaysMais60++;
+                }
             } else {
                 conCohortSemData++;
             }
@@ -169,11 +163,16 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
                     timesProc.push(diffDays);
                 }
 
-                const catLead = getCohortCategory(dSaleStr, dLeadStr);
-                if (catLead === 'mes') procLeadCohortMes++;
-                else if (catLead === 'd30') procLeadCohort30++;
-                else if (catLead === 'd60') procLeadCohort60++;
-                else procLeadCohortSemData++;
+                if (dLeadStr.substring(0, 7) === dSaleStr.substring(0, 7)) {
+                    procLeadMes++;
+                }
+                if (diffDays <= 30) {
+                    procLeadDays30++;
+                } else if (diffDays <= 60) {
+                    procLeadDays60++;
+                } else {
+                    procLeadDaysMais60++;
+                }
             } else {
                 procLeadCohortSemData++;
             }
@@ -191,11 +190,16 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
                     timesConsToProc.push(diffDaysCons);
                 }
 
-                const catCons = getCohortCategory(dSaleStr, dConsStr);
-                if (catCons === 'mes') procConsCohortMes++;
-                else if (catCons === 'd30') procConsCohort30++;
-                else if (catCons === 'd60') procConsCohort60++;
-                else procConsCohortSemData++;
+                if (dConsStr.substring(0, 7) === dSaleStr.substring(0, 7)) {
+                    procConsMes++;
+                }
+                if (diffDaysCons <= 30) {
+                    procConsDays30++;
+                } else if (diffDaysCons <= 60) {
+                    procConsDays60++;
+                } else {
+                    procConsDaysMais60++;
+                }
             } else {
                 procConsCohortSemData++;
             }
@@ -333,39 +337,45 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
         revenueConOnline_Homem: Number(revenueConOnline_Homem) || 0
     };
 
-    // Consolidação de Safras / Cohort (Áudio 2 e 3)
-    const totalConComData = conCohortMes + conCohort30 + conCohort60;
+    // Consolidação de Safras & Ciclos / Cohort (Áudio 2, 3 e 4)
+    const totalConComData = conDays30 + conDays60 + conDaysMais60;
     const cohortCon = {
         mes: conCohortMes,
         mesPct: totalConComData > 0 ? ((conCohortMes / totalConComData) * 100).toFixed(1) : '0.0',
-        d30: conCohort30,
-        d30Pct: totalConComData > 0 ? ((conCohort30 / totalConComData) * 100).toFixed(1) : '0.0',
-        d60: conCohort60,
-        d60Pct: totalConComData > 0 ? ((conCohort60 / totalConComData) * 100).toFixed(1) : '0.0',
+        d30: conDays30,
+        d30Pct: totalConComData > 0 ? ((conDays30 / totalConComData) * 100).toFixed(1) : '0.0',
+        d60: conDays60,
+        d60Pct: totalConComData > 0 ? ((conDays60 / totalConComData) * 100).toFixed(1) : '0.0',
+        dMais: conDaysMais60,
+        dMaisPct: totalConComData > 0 ? ((conDaysMais60 / totalConComData) * 100).toFixed(1) : '0.0',
         semData: conCohortSemData,
         totalComData: totalConComData
     };
 
-    const totalProcConsComData = procConsCohortMes + procConsCohort30 + procConsCohort60;
+    const totalProcConsComData = procConsDays30 + procConsDays60 + procConsDaysMais60;
     const cohortProcCons = {
-        mes: procConsCohortMes,
-        mesPct: totalProcConsComData > 0 ? ((procConsCohortMes / totalProcConsComData) * 100).toFixed(1) : '0.0',
-        d30: procConsCohort30,
-        d30Pct: totalProcConsComData > 0 ? ((procConsCohort30 / totalProcConsComData) * 100).toFixed(1) : '0.0',
-        d60: procConsCohort60,
-        d60Pct: totalProcConsComData > 0 ? ((procConsCohort60 / totalProcConsComData) * 100).toFixed(1) : '0.0',
+        mes: procConsMes,
+        mesPct: totalProcConsComData > 0 ? ((procConsMes / totalProcConsComData) * 100).toFixed(1) : '0.0',
+        d30: procConsDays30,
+        d30Pct: totalProcConsComData > 0 ? ((procConsDays30 / totalProcConsComData) * 100).toFixed(1) : '0.0',
+        d60: procConsDays60,
+        d60Pct: totalProcConsComData > 0 ? ((procConsDays60 / totalProcConsComData) * 100).toFixed(1) : '0.0',
+        dMais: procConsDaysMais60,
+        dMaisPct: totalProcConsComData > 0 ? ((procConsDaysMais60 / totalProcConsComData) * 100).toFixed(1) : '0.0',
         semData: procConsCohortSemData,
         totalComData: totalProcConsComData
     };
 
-    const totalProcLeadComData = procLeadCohortMes + procLeadCohort30 + procLeadCohort60;
+    const totalProcLeadComData = procLeadDays30 + procLeadDays60 + procLeadDaysMais60;
     const cohortProcLead = {
-        mes: procLeadCohortMes,
-        mesPct: totalProcLeadComData > 0 ? ((procLeadCohortMes / totalProcLeadComData) * 100).toFixed(1) : '0.0',
-        d30: procLeadCohort30,
-        d30Pct: totalProcLeadComData > 0 ? ((procLeadCohort30 / totalProcLeadComData) * 100).toFixed(1) : '0.0',
-        d60: procLeadCohort60,
-        d60Pct: totalProcLeadComData > 0 ? ((procLeadCohort60 / totalProcLeadComData) * 100).toFixed(1) : '0.0',
+        mes: procLeadMes,
+        mesPct: totalProcLeadComData > 0 ? ((procLeadMes / totalProcLeadComData) * 100).toFixed(1) : '0.0',
+        d30: procLeadDays30,
+        d30Pct: totalProcLeadComData > 0 ? ((procLeadDays30 / totalProcLeadComData) * 100).toFixed(1) : '0.0',
+        d60: procLeadDays60,
+        d60Pct: totalProcLeadComData > 0 ? ((procLeadDays60 / totalProcLeadComData) * 100).toFixed(1) : '0.0',
+        dMais: procLeadDaysMais60,
+        dMaisPct: totalProcLeadComData > 0 ? ((procLeadDaysMais60 / totalProcLeadComData) * 100).toFixed(1) : '0.0',
         semData: procLeadCohortSemData,
         totalComData: totalProcLeadComData
     };
