@@ -553,11 +553,6 @@ export default function AnalyticsTab() {
                                 <div>
                                     <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Faturamento Líquido Total</p>
                                     <h3 className="text-3xl lg:text-4xl font-bold text-white">{formatCurrency(metrics.total)}</h3>
-                                    {metrics.revenueProcCancelado > 0 && (
-                                        <p className="text-[9px] text-gray-400 mt-1">
-                                            (Expurgado <span className="text-red-400 font-mono font-bold">-{formatCurrency(metrics.revenueProcCancelado)}</span> de cancelamentos)
-                                        </p>
-                                    )}
                                 </div>
                                 <div className="mt-auto bg-black/40 p-3 rounded-lg border border-green-500/30 self-start md:mt-0 mt-4">
                                     <p className="text-[9px] text-green-500 uppercase tracking-wider mb-0.5"><i className="ph-fill ph-tag"></i> Ticket Médio (Procedimento)</p>
@@ -586,7 +581,7 @@ export default function AnalyticsTab() {
 
                             {/* Status Consultas */}
                             <div className="glass-panel p-4 rounded-xl border-t-2 border-purple-500 flex flex-col justify-center gap-1">
-                                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 text-center font-bold">Status Consultas</p>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Status Consultas</p>
                                 <div className="flex justify-between items-center text-[10px] font-bold">
                                     <span className="text-green-400">Realizada</span>
                                     <span className="text-white font-mono">{metrics.statRealizada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaConRealizada}%)</span></span>
@@ -618,14 +613,7 @@ export default function AnalyticsTab() {
 
                             {/* Status Procedimentos */}
                             <div className="glass-panel p-4 rounded-xl border-t-2 border-green-500 flex flex-col justify-center gap-1">
-                                <div className="flex justify-between items-center mb-0.5">
-                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Status Procedimentos</p>
-                                    {metrics.revenueProcCancelado > 0 && (
-                                        <span className="text-[9px] text-red-400 font-mono bg-red-950/40 px-1.5 py-0.5 rounded border border-red-800/40" title="Valor cancelado não somado no faturamento">
-                                            -{formatCurrency(metrics.revenueProcCancelado)}
-                                        </span>
-                                    )}
-                                </div>
+                                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Status Procedimentos</p>
                                 <div className="flex justify-between items-center text-[10px] font-bold">
                                     <span className="text-green-400">Realizado</span>
                                     <span className="text-white font-mono">{metrics.statProcRealizada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaProcRealizado}%)</span></span>
@@ -636,7 +624,12 @@ export default function AnalyticsTab() {
                                 </div>
                                 <div className="flex justify-between items-center text-[10px] font-bold">
                                     <span className="text-red-400">Cancelado</span>
-                                    <span className="text-white font-mono">{metrics.statProcCancelada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaProcCancelamento}%)</span></span>
+                                    <span className="text-white font-mono">
+                                        {metrics.statProcCancelada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaProcCancelamento}%)</span>
+                                        {metrics.revenueProcCancelado > 0 && (
+                                            <span className="text-red-400 font-normal text-[9px] ml-1.5">• {formatCurrency(metrics.revenueProcCancelado)}</span>
+                                        )}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -655,6 +648,127 @@ export default function AnalyticsTab() {
                         <div className="glass-panel p-3 rounded-xl border-l-4 border-cyan-500 bg-cyan-900/10 flex flex-col justify-center">
                             <p className="text-[9px] text-cyan-500 uppercase tracking-wider mb-1 leading-tight"><i className="ph-bold ph-clock-clockwise"></i> Consulta &gt; Procedimento</p>
                             <h3 className="text-lg font-bold text-white">{metrics.avgConsToProc !== null ? metrics.avgConsToProc + ' dias' : '--'}</h3>
+                        </div>
+                    </div>
+
+                    {/* FUNIL CASCATA GLOBAL DA OPERAÇÃO (TODA A CLÍNICA - VISÃO GERAL) */}
+                    <div className="glass-panel p-6 md:p-8 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-slate-900/40 to-purple-950/20 mb-6 shadow-xl relative z-10">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 border-b border-gray-800 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-blue-600/20 p-2.5 rounded-xl text-blue-400">
+                                    <i className="ph-fill ph-funnel text-2xl"></i>
+                                </div>
+                                <div>
+                                    <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                        Consolidado Global da Operação — Toda a Clínica
+                                    </h3>
+                                    <p className="text-xs text-gray-400">
+                                        Funil real de conversão de ponta a ponta (Mulheres + Homens • Todas as Unidades)
+                                    </p>
+                                </div>
+                            </div>
+                            <span className="text-[10px] text-blue-300 font-mono bg-blue-900/30 border border-blue-700/40 px-3 py-1 rounded-full self-start sm:self-auto">
+                                100% da Operação
+                            </span>
+                        </div>
+
+                        <div className="flex flex-col gap-2.5">
+                            {/* Etapa 1: LEADS (100% largura) */}
+                            <div className="w-full bg-gradient-to-r from-blue-950/50 via-blue-900/20 to-black/40 border border-blue-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div className="absolute top-0 left-0 w-2 h-full bg-blue-500"></div>
+                                <div className="text-center sm:text-left space-y-1">
+                                    <span className="text-xs text-blue-400 font-bold uppercase tracking-wider block">1. Leads Totais</span>
+                                    <span className="text-xs text-gray-400 block">
+                                        Investimento Real (+12,15%): <strong className="text-white font-mono text-sm">{formatCurrency(metrics.totalInvestReal)}</strong>
+                                        <span className="mx-2 text-gray-600">•</span>
+                                        CPL Médio: <strong className="text-blue-300 font-mono text-sm">{formatCurrency(metrics.cpl)}</strong>
+                                    </span>
+                                </div>
+                                <div className="text-center sm:text-right">
+                                    <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
+                                        {metrics.totalLeadsCount} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Leads</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Chevron 1 */}
+                            <div className="flex flex-col items-center my-0.5">
+                                <div className="flex items-center gap-2 bg-purple-900/40 border border-purple-500/30 px-4 py-1.5 rounded-full text-xs font-bold text-purple-300 font-mono shadow-md">
+                                    <i className="ph-bold ph-arrow-down"></i> Conversão Lead ➔ Consulta: {parseFloat(metrics.convLeadParaConsulta).toFixed(1)}%
+                                </div>
+                            </div>
+
+                            {/* Etapa 2: CONSULTAS (95% largura) */}
+                            <div className="w-full md:w-[95%] mx-auto bg-gradient-to-r from-purple-950/50 via-purple-900/20 to-black/40 border border-purple-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div className="absolute top-0 left-0 w-2 h-full bg-purple-500"></div>
+                                <div className="text-center sm:text-left space-y-1">
+                                    <span className="text-xs text-purple-400 font-bold uppercase tracking-wider block">2. Consultas Agendadas & Realizadas</span>
+                                    <span className="text-xs text-gray-400 block">
+                                        CPA Consulta: <strong className="text-purple-300 font-mono text-sm">{formatCurrency(metrics.cpaCon)}</strong>
+                                        <span className="mx-2 text-gray-600">•</span>
+                                        Taxa Comparecimento: <strong className="text-emerald-400 font-mono text-sm">{metrics.statRealizada} Realizadas ({metrics.taxaConRealizada}%)</strong>
+                                    </span>
+                                </div>
+                                <div className="text-center sm:text-right">
+                                    <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
+                                        {metrics.cCon} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Consultas</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Chevron 2 */}
+                            <div className="flex flex-col items-center my-0.5">
+                                <div className="flex items-center gap-2 bg-pink-900/40 border border-pink-500/30 px-4 py-1.5 rounded-full text-xs font-bold text-pink-300 font-mono shadow-md">
+                                    <i className="ph-bold ph-arrow-down"></i> Conversão Consulta ➔ Procedimento: {parseFloat(metrics.convConsultaParaProc).toFixed(1)}%
+                                </div>
+                            </div>
+
+                            {/* Etapa 3: PROCEDIMENTOS (90% largura) */}
+                            <div className="w-full md:w-[90%] mx-auto bg-gradient-to-r from-pink-950/50 via-pink-900/20 to-black/40 border border-pink-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div className="absolute top-0 left-0 w-2 h-full bg-pink-500"></div>
+                                <div className="text-center sm:text-left space-y-1">
+                                    <span className="text-xs text-pink-400 font-bold uppercase tracking-wider block">3. Procedimentos Vendidos (Válidos)</span>
+                                    <span className="text-xs text-gray-400 block">
+                                        CPA Procedimento: <strong className="text-pink-300 font-mono text-sm">{formatCurrency(metrics.cpaPro)}</strong>
+                                        {metrics.statProcCancelada > 0 && (
+                                            <>
+                                                <span className="mx-2 text-gray-600">•</span>
+                                                Cancelados: <strong className="text-red-400 font-mono text-xs">{metrics.statProcCancelada} ({metrics.taxaProcCancelamento}%) [-{formatCurrency(metrics.revenueProcCancelado)}]</strong>
+                                            </>
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="text-center sm:text-right">
+                                    <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
+                                        {metrics.cPro} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Vendas</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Chevron 3 */}
+                            <div className="flex flex-col items-center my-0.5">
+                                <div className="flex items-center gap-2 bg-emerald-900/40 border border-emerald-500/30 px-4 py-1.5 rounded-full text-xs font-bold text-emerald-300 font-mono shadow-md">
+                                    <i className="ph-bold ph-arrow-down"></i> Ticket Médio Real: {formatCurrency(metrics.ticketMedioProc)}
+                                </div>
+                            </div>
+
+                            {/* Etapa 4: FATURAMENTO (85% largura) */}
+                            <div className="w-full md:w-[85%] mx-auto bg-gradient-to-r from-emerald-950/40 via-emerald-900/15 to-black/50 border border-emerald-500/40 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500"></div>
+                                <div className="text-center sm:text-left space-y-1">
+                                    <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider block">4. Faturamento Líquido Real</span>
+                                    <span className="text-xs text-gray-400 block">
+                                        ROAS Consolidado: <strong className="text-emerald-300 font-mono text-sm">{metrics.totalInvestReal > 0 ? (metrics.total / metrics.totalInvestReal).toFixed(1) + 'x' : '--'}</strong>
+                                        <span className="mx-2 text-gray-600">•</span>
+                                        Retorno p/ Lead (RPL): <strong className="text-gray-300 font-mono text-xs">{formatCurrency(metrics.rpl)}</strong>
+                                    </span>
+                                </div>
+                                <div className="text-center sm:text-right">
+                                    <span className="text-3xl lg:text-4xl font-extrabold text-emerald-400 font-mono tracking-tight">
+                                        {formatCurrency(metrics.total)}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -887,127 +1001,6 @@ export default function AnalyticsTab() {
                                 revenueProc={metrics.revenueProcOnline_Mulher + metrics.revenueProcOnline_Homem}
                                 revenueCons={metrics.revenueConOnline_Mulher + metrics.revenueConOnline_Homem}
                             />
-                        </div>
-                    </div>
-
-                    {/* FUNIL CASCATA GLOBAL DA OPERAÇÃO (TODA A CLÍNICA) */}
-                    <div className="glass-panel p-6 md:p-8 rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-950/20 via-slate-900/40 to-purple-950/20 mb-6 shadow-xl relative z-10">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 border-b border-gray-800 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-blue-600/20 p-2.5 rounded-xl text-blue-400">
-                                    <i className="ph-fill ph-funnel text-2xl"></i>
-                                </div>
-                                <div>
-                                    <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                                        Consolidado Global da Operação — Toda a Clínica
-                                    </h3>
-                                    <p className="text-xs text-gray-400">
-                                        Funil real de conversão de ponta a ponta (Mulheres + Homens • Todas as Unidades)
-                                    </p>
-                                </div>
-                            </div>
-                            <span className="text-[10px] text-blue-300 font-mono bg-blue-900/30 border border-blue-700/40 px-3 py-1 rounded-full self-start sm:self-auto">
-                                100% da Operação
-                            </span>
-                        </div>
-
-                        <div className="flex flex-col gap-2.5">
-                            {/* Etapa 1: LEADS (100% largura) */}
-                            <div className="w-full bg-gradient-to-r from-blue-950/50 via-blue-900/20 to-black/40 border border-blue-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
-                                <div className="absolute top-0 left-0 w-2 h-full bg-blue-500"></div>
-                                <div className="text-center sm:text-left space-y-1">
-                                    <span className="text-xs text-blue-400 font-bold uppercase tracking-wider block">1. Leads Totais</span>
-                                    <span className="text-xs text-gray-400 block">
-                                        Investimento Real (+12,15%): <strong className="text-white font-mono text-sm">{formatCurrency(metrics.totalInvestReal)}</strong>
-                                        <span className="mx-2 text-gray-600">•</span>
-                                        CPL Médio: <strong className="text-blue-300 font-mono text-sm">{formatCurrency(metrics.cpl)}</strong>
-                                    </span>
-                                </div>
-                                <div className="text-center sm:text-right">
-                                    <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
-                                        {metrics.totalLeadsCount} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Leads</span>
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Chevron 1 */}
-                            <div className="flex flex-col items-center my-0.5">
-                                <div className="flex items-center gap-2 bg-purple-900/40 border border-purple-500/30 px-4 py-1.5 rounded-full text-xs font-bold text-purple-300 font-mono shadow-md">
-                                    <i className="ph-bold ph-arrow-down"></i> Conversão Lead ➔ Consulta: {parseFloat(metrics.convLeadParaConsulta).toFixed(1)}%
-                                </div>
-                            </div>
-
-                            {/* Etapa 2: CONSULTAS (95% largura) */}
-                            <div className="w-full md:w-[95%] mx-auto bg-gradient-to-r from-purple-950/50 via-purple-900/20 to-black/40 border border-purple-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
-                                <div className="absolute top-0 left-0 w-2 h-full bg-purple-500"></div>
-                                <div className="text-center sm:text-left space-y-1">
-                                    <span className="text-xs text-purple-400 font-bold uppercase tracking-wider block">2. Consultas Agendadas & Realizadas</span>
-                                    <span className="text-xs text-gray-400 block">
-                                        CPA Consulta: <strong className="text-purple-300 font-mono text-sm">{formatCurrency(metrics.cpaCon)}</strong>
-                                        <span className="mx-2 text-gray-600">•</span>
-                                        Taxa Comparecimento: <strong className="text-emerald-400 font-mono text-sm">{metrics.statRealizada} Realizadas ({metrics.taxaConRealizada}%)</strong>
-                                    </span>
-                                </div>
-                                <div className="text-center sm:text-right">
-                                    <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
-                                        {metrics.cCon} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Consultas</span>
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Chevron 2 */}
-                            <div className="flex flex-col items-center my-0.5">
-                                <div className="flex items-center gap-2 bg-pink-900/40 border border-pink-500/30 px-4 py-1.5 rounded-full text-xs font-bold text-pink-300 font-mono shadow-md">
-                                    <i className="ph-bold ph-arrow-down"></i> Conversão Consulta ➔ Procedimento: {parseFloat(metrics.convConsultaParaProc).toFixed(1)}%
-                                </div>
-                            </div>
-
-                            {/* Etapa 3: PROCEDIMENTOS (90% largura) */}
-                            <div className="w-full md:w-[90%] mx-auto bg-gradient-to-r from-pink-950/50 via-pink-900/20 to-black/40 border border-pink-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
-                                <div className="absolute top-0 left-0 w-2 h-full bg-pink-500"></div>
-                                <div className="text-center sm:text-left space-y-1">
-                                    <span className="text-xs text-pink-400 font-bold uppercase tracking-wider block">3. Procedimentos Vendidos (Válidos)</span>
-                                    <span className="text-xs text-gray-400 block">
-                                        CPA Procedimento: <strong className="text-pink-300 font-mono text-sm">{formatCurrency(metrics.cpaPro)}</strong>
-                                        {metrics.statProcCancelada > 0 && (
-                                            <>
-                                                <span className="mx-2 text-gray-600">•</span>
-                                                Cancelados: <strong className="text-red-400 font-mono text-xs">{metrics.statProcCancelada} ({metrics.taxaProcCancelamento}%) [-{formatCurrency(metrics.revenueProcCancelado)}]</strong>
-                                            </>
-                                        )}
-                                    </span>
-                                </div>
-                                <div className="text-center sm:text-right">
-                                    <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
-                                        {metrics.cPro} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Vendas</span>
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Chevron 3 */}
-                            <div className="flex flex-col items-center my-0.5">
-                                <div className="flex items-center gap-2 bg-emerald-900/40 border border-emerald-500/30 px-4 py-1.5 rounded-full text-xs font-bold text-emerald-300 font-mono shadow-md">
-                                    <i className="ph-bold ph-arrow-down"></i> Ticket Médio Real: {formatCurrency(metrics.ticketMedioProc)}
-                                </div>
-                            </div>
-
-                            {/* Etapa 4: FATURAMENTO (85% largura) */}
-                            <div className="w-full md:w-[85%] mx-auto bg-gradient-to-r from-emerald-950/40 via-emerald-900/15 to-black/50 border border-emerald-500/40 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
-                                <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500"></div>
-                                <div className="text-center sm:text-left space-y-1">
-                                    <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider block">4. Faturamento Líquido Real</span>
-                                    <span className="text-xs text-gray-400 block">
-                                        ROAS Consolidado: <strong className="text-emerald-300 font-mono text-sm">{metrics.totalInvestReal > 0 ? (metrics.total / metrics.totalInvestReal).toFixed(1) + 'x' : '--'}</strong>
-                                        <span className="mx-2 text-gray-600">•</span>
-                                        Retorno p/ Lead (RPL): <strong className="text-gray-300 font-mono text-xs">{formatCurrency(metrics.rpl)}</strong>
-                                    </span>
-                                </div>
-                                <div className="text-center sm:text-right">
-                                    <span className="text-3xl lg:text-4xl font-extrabold text-emerald-400 font-mono tracking-tight">
-                                        {formatCurrency(metrics.total)}
-                                    </span>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
