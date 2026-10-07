@@ -116,6 +116,20 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
             }
         }
 
+        // Função auxiliar de cohort: compara mês/ano da venda com mês/ano de referência
+        const getCohortCategory = (saleDateStr, refDateStr) => {
+            if (!refDateStr || !saleDateStr) return 'semData';
+            const sYear = parseInt(saleDateStr.substring(0, 4));
+            const sMonth = parseInt(saleDateStr.substring(5, 7));
+            const rYear = parseInt(refDateStr.substring(0, 4));
+            const rMonth = parseInt(refDateStr.substring(5, 7));
+            if (isNaN(sYear) || isNaN(sMonth) || isNaN(rYear) || isNaN(rMonth)) return 'semData';
+            const diffMonths = (sYear - rYear) * 12 + (sMonth - rMonth);
+            if (diffMonths <= 0) return 'mes';
+            if (diffMonths === 1) return 'd30';
+            return 'd60';
+        };
+
         // Análise de Ciclo & Safra de Consultas (Lead ➔ Consulta)
         if (s.type === 'Consulta' && s.date) {
             if (s.leadDate) {
@@ -125,19 +139,16 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
                 const dSale = new Date(dSaleStr);
                 const diffTime = dSale - dLead;
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const isSameMonth = dLeadStr.substring(0, 7) === dSaleStr.substring(0, 7);
 
                 if (!isNaN(diffDays) && diffDays >= 0) {
                     timesConsulta.push(diffDays);
                 }
 
-                if (diffDays <= 30 || isSameMonth) {
-                    conCohortMes++;
-                } else if (diffDays <= 60) {
-                    conCohort30++;
-                } else {
-                    conCohort60++;
-                }
+                const cat = getCohortCategory(dSaleStr, dLeadStr);
+                if (cat === 'mes') conCohortMes++;
+                else if (cat === 'd30') conCohort30++;
+                else if (cat === 'd60') conCohort60++;
+                else conCohortSemData++;
             } else {
                 conCohortSemData++;
             }
@@ -153,19 +164,16 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
                 const dSale = new Date(dSaleStr);
                 const diffTime = dSale - dLead;
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const isSameMonth = dLeadStr.substring(0, 7) === dSaleStr.substring(0, 7);
 
                 if (!isNaN(diffDays) && diffDays >= 0) {
                     timesProc.push(diffDays);
                 }
 
-                if (diffDays <= 30 || isSameMonth) {
-                    procLeadCohortMes++;
-                } else if (diffDays <= 60) {
-                    procLeadCohort30++;
-                } else {
-                    procLeadCohort60++;
-                }
+                const catLead = getCohortCategory(dSaleStr, dLeadStr);
+                if (catLead === 'mes') procLeadCohortMes++;
+                else if (catLead === 'd30') procLeadCohort30++;
+                else if (catLead === 'd60') procLeadCohort60++;
+                else procLeadCohortSemData++;
             } else {
                 procLeadCohortSemData++;
             }
@@ -178,19 +186,16 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
                 const dSale = new Date(dSaleStr);
                 const diffTimeCons = dSale - dCons;
                 const diffDaysCons = Math.ceil(diffTimeCons / (1000 * 60 * 60 * 24));
-                const isSameMonthCons = dConsStr.substring(0, 7) === dSaleStr.substring(0, 7);
 
                 if (!isNaN(diffDaysCons) && diffDaysCons >= 0) {
                     timesConsToProc.push(diffDaysCons);
                 }
 
-                if (diffDaysCons <= 30 || isSameMonthCons) {
-                    procConsCohortMes++;
-                } else if (diffDaysCons <= 60) {
-                    procConsCohort30++;
-                } else {
-                    procConsCohort60++;
-                }
+                const catCons = getCohortCategory(dSaleStr, dConsStr);
+                if (catCons === 'mes') procConsCohortMes++;
+                else if (catCons === 'd30') procConsCohort30++;
+                else if (catCons === 'd60') procConsCohort60++;
+                else procConsCohortSemData++;
             } else {
                 procConsCohortSemData++;
             }
