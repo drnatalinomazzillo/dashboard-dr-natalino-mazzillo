@@ -336,7 +336,7 @@ export default function AnalyticsTab() {
     const filteredSales = getFilteredSales(sales, filters, history, publics, procedures);
     const mktData = getFilteredMarketing(marketing, period, filterStart, filterEnd, filterLocation, filterCampaignObjective);
     const periodLabel = period === 'month' ? 'Este Mês' : period === 'last_month' ? 'Mês Anterior' : period === 'year' ? 'Este Ano' : period === 'today' ? 'Hoje' : period === 'week' ? 'Esta Semana' : period === 'all' ? 'Todo o Período' : 'Personalizado';
-    const metrics = calculateMetrics(filteredSales, mktData, periodLabel);
+    const metrics = calculateMetrics(filteredSales, mktData, periodLabel, filters);
     const grouped = groupSalesByTag(filteredSales, history);
     const evolutionData = generateEvolutionData(filteredSales, marketing, filters);
 
@@ -584,7 +584,12 @@ export default function AnalyticsTab() {
                                 <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Status Consultas</p>
                                 <div className="flex justify-between items-center text-[10px] font-bold">
                                     <span className="text-green-400">Realizada</span>
-                                    <span className="text-white font-mono">{metrics.statRealizada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaConRealizada}%)</span></span>
+                                    <span className="text-white font-mono">
+                                        {metrics.statRealizada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaConRealizada}%)</span>
+                                        {metrics.statRealizadaFutura > 0 && (
+                                            <span className="text-emerald-400 font-normal text-[9px] ml-1.5" title={`${metrics.statRealizadaNoPeriodo} realizadas no próprio período e ${metrics.statRealizadaFutura} agendadas para períodos futuros`}>• {metrics.statRealizadaNoPeriodo} no mês</span>
+                                        )}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center text-[10px] font-bold">
                                     <span className="text-yellow-400">Agendada</span>
@@ -712,7 +717,18 @@ export default function AnalyticsTab() {
                                         <span className="text-xs text-gray-400 block">
                                             CPA Consulta: <strong className="text-purple-300 font-mono text-sm">{formatCurrency(metrics.cpaCon)}</strong>
                                             <span className="mx-2 text-gray-600">•</span>
-                                            Taxa Comparecimento: <strong className="text-emerald-400 font-mono text-sm">{metrics.statRealizada} Realizadas ({metrics.taxaConRealizada}%)</strong>
+                                            Taxa Comparecimento: <strong className="text-emerald-400 font-mono text-sm">
+                                                {metrics.statRealizadaFutura > 0 ? (
+                                                    <>
+                                                        {metrics.statRealizadaNoPeriodo} Realiz. no Mês ({metrics.taxaConRealizadaNoPeriodo}%)
+                                                        <span className="text-xs font-normal text-emerald-300/80 ml-1.5" title="Total de consultas realizadas acumulado até hoje">
+                                                            [{metrics.statRealizada} Totais • {metrics.taxaConRealizada}%]
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    `${metrics.statRealizada} Realizadas (${metrics.taxaConRealizada}%)`
+                                                )}
+                                            </strong>
                                         </span>
                                     </div>
                                     <div className="text-center sm:text-right">

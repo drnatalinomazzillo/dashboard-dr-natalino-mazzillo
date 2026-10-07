@@ -34,7 +34,14 @@ Sua arquitetura fullstack atual combina um frontend moderno em **React + Vite + 
     * `Consulta no Mês`: Pacientes cuja consulta médica (Coluna M) ocorreu no mesmo mês do fechamento.
     * `≤ 30 dias`: Fechamento rápido em até 30 dias da consulta.
     * `31-60 dias`: Fechamento entre 1 e 2 meses da consulta.
-    * `+60 dias`: Fechamento com mais de 2 meses após a consulta.
+### 5. Taxa de Comparecimento no Período/Mês da Venda vs. Comparecimento Acumulado Total
+* **Distinção Analítica**: Diferenciação clara entre consultas realizadas dentro do próprio mês civil da venda (`statRealizadaNoPeriodo`) e consultas com realização futura/agendamento estendido (`statRealizadaFutura`).
+* **Exibição no Funil Global (Etapa 2)**:
+  * Apresenta `${statRealizadaNoPeriodo} Realiz. no Mês (${taxaConRealizadaNoPeriodo}%)` com o total acumulado `[${statRealizada} Totais • ${taxaConRealizada}%]`.
+  * Exemplo real (Setembro/2026): 34 consultas vendidas, 22 realizadas dentro do mês de Setembro (64.7%) e 24 realizadas no total acumulado (70.6%).
+* **Exibição no Card Status Consultas**:
+  * Apresenta `${statRealizada} (${taxaConRealizada}%) • ${statRealizadaNoPeriodo} no mês`.
+* **Tratamento de Status**: Status como "Remarcou" agrupados adequadamente com consultas agendadas/pendentes.
 
 ---
 

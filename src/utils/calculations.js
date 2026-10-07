@@ -1,7 +1,7 @@
 /**
  * Calcula todas as métricas do dashboard a partir de vendas filtradas e dados de marketing
  */
-export function calculateMetrics(filteredSales, marketingData, periodLabel) {
+export function calculateMetrics(filteredSales, marketingData, periodLabel, filters = {}) {
     let total = 0, totalConsulta = 0, totalProcedimento = 0, cCon = 0, cPro = 0;
     let grouped = {}, sourceStats = {};
     let timesConsulta = [], timesProc = [], timesConsToProc = [];
@@ -9,6 +9,7 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
     let procCF = 0, procBarra = 0;
     let dailyRevenue = {};
     let statRealizada = 0, statAgendada = 0, statCancelada = 0;
+    let statRealizadaNoPeriodo = 0, statRealizadaFutura = 0;
     let statProcRealizada = 0, statProcAgendada = 0, statProcCancelada = 0;
     let revenueProcCancelado = 0;
     let revenueConCancelado = 0;
@@ -44,7 +45,7 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
         const st = (s.status || '').toLowerCase();
         const isCancelado = st.includes('cancelad') || st.includes('não compareceu');
         const isRealizada = st.includes('realizado') || st.includes('realizada');
-        const isAgendada = st.includes('agendad') || st.includes('a agendar');
+        const isAgendada = st.includes('agendad') || st.includes('a agendar') || st.includes('remarc');
 
         let dateKey = s.date.substring(0, 10);
 
@@ -60,9 +61,29 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
                 if (!sourceStats[s.source]) sourceStats[s.source] = 0;
                 sourceStats[s.source] += s.value;
 
-                if (isRealizada) statRealizada++;
-                else if (isAgendada) statAgendada++;
-                else statRealizada++;
+                if (isRealizada) {
+                    statRealizada++;
+                    if (s.consultationDate) {
+                        const dConsStr = s.consultationDate.includes('T') ? s.consultationDate.split('T')[0] : s.consultationDate;
+                        const dSaleStr = s.date.includes('T') ? s.date.split('T')[0] : s.date;
+                        let isNoPeriodo = false;
+                        if (filters?.period === 'year') {
+                            isNoPeriodo = dConsStr.substring(0, 4) === dSaleStr.substring(0, 4);
+                        } else if (filters?.period === 'custom' && filters?.filterStart && filters?.filterEnd) {
+                            isNoPeriodo = dConsStr >= filters.filterStart && dConsStr <= filters.filterEnd;
+                        } else {
+                            isNoPeriodo = dConsStr.substring(0, 7) === dSaleStr.substring(0, 7);
+                        }
+                        if (isNoPeriodo) statRealizadaNoPeriodo++;
+                        else statRealizadaFutura++;
+                    } else {
+                        statRealizadaNoPeriodo++;
+                    }
+                } else if (isAgendada) {
+                    statAgendada++;
+                } else {
+                    statAgendada++;
+                }
 
                 if (s.location === 'Cabo Frio') conCF++;
                 else if (s.location === 'Barra da Tijuca') conBarra++;
@@ -97,7 +118,7 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
 
                 if (isRealizada) statProcRealizada++;
                 else if (isAgendada) statProcAgendada++;
-                else statRealizada++; // default para confirmados/realizados
+                else statProcRealizada++; // default para confirmados/realizados
 
                 if (s.location === 'Cabo Frio') procCF++;
                 if (s.location === 'Barra da Tijuca') procBarra++;
@@ -263,6 +284,8 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
     const taxaProcAgendado = cProTotal > 0 ? ((statProcAgendada / cProTotal) * 100).toFixed(1) : '0';
 
     const taxaConRealizada = cCon > 0 ? ((statRealizada / cCon) * 100).toFixed(1) : '0';
+    const taxaConRealizadaNoPeriodo = cCon > 0 ? ((statRealizadaNoPeriodo / cCon) * 100).toFixed(1) : '0';
+    const taxaConRealizadaFutura = cCon > 0 ? ((statRealizadaFutura / cCon) * 100).toFixed(1) : '0';
     const taxaConAgendada = cCon > 0 ? ((statAgendada / cCon) * 100).toFixed(1) : '0';
     const taxaConCancelada = cCon > 0 ? ((statCancelada / cCon) * 100).toFixed(1) : '0';
 
@@ -278,11 +301,14 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
         totalLeads: Number(totalLeadsCount) || 0,
         cplMedio: totalLeadsCount > 0 ? Number((totalInvestReal / totalLeadsCount).toFixed(2)) : null,
         consultasVendidas: Number(cCon) || 0,
+        consultasRealizadas: Number(statRealizada) || 0,
+        consultasRealizadasNoPeriodo: Number(statRealizadaNoPeriodo) || 0,
+        taxaComparecimentoConsulta: Number(taxaConRealizada) || 0,
+        taxaComparecimentoNoPeriodo: Number(taxaConRealizadaNoPeriodo) || 0,
         procedimentosVendidos: Number(cPro) || 0,
         procedimentosCancelados: Number(statProcCancelada) || 0,
         receitaCanceladaProcedimento: Number(revenueProcCancelado) || 0,
         taxaCancelamentoProcedimento: Number(taxaProcCancelamento) || 0,
-        taxaComparecimentoConsulta: Number(taxaConRealizada) || 0,
         cpaConsulta: Number(cpaCon) || 0,
         cpaProcedimento: Number(cpaPro) || 0,
         leadsPorConsulta: cCon > 0 ? Number((totalLeadsCount / cCon).toFixed(2)) : null,
@@ -384,11 +410,13 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
         total, totalConsulta, totalProcedimento, cCon, cPro,
         grouped, sourceStats, dailyRevenue,
         conCF, conBarra, conOnline, procCF, procBarra,
-        statRealizada, statAgendada, statCancelada,
+        statRealizada, statRealizadaNoPeriodo, statRealizadaFutura,
+        statAgendada, statCancelada,
         statProcRealizada, statProcAgendada, statProcCancelada,
         cProTotal, revenueProcCancelado, revenueConCancelado,
         taxaProcCancelamento, taxaProcRealizado, taxaProcAgendado,
-        taxaConRealizada, taxaConAgendada, taxaConCancelada,
+        taxaConRealizada, taxaConRealizadaNoPeriodo, taxaConRealizadaFutura,
+        taxaConAgendada, taxaConCancelada,
         avgCon, avgPro, avgConsToProc,
         cohortCon, cohortProcCons, cohortProcLead,
         totalInvestReal, taxAmount, totalInvest,

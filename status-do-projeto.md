@@ -35,6 +35,11 @@ Documento de controle de status, pendências, automações e melhorias estrutura
   * **3. Procedimentos Válidos (90%)**: Vendas líquidas, Cancelados (% e R$ cancelado) e CPA Procedimento $\to$ Chevron de Ticket Médio.
   * **4. Faturamento Líquido Real (85%)**: Faturamento Total e ROAS Consolidado da Operação.
 
+### 5. Comparecimento no Próprio Período vs. Acumulado Total
+* **Visão Temporal Refinada**: Distinção clara entre consultas realizadas no próprio período selecionado (`statRealizadaNoPeriodo`) e consultas agendadas para meses posteriores (`statRealizadaFutura`).
+* **Etapa 2 do Funil**: Exibe `{statRealizadaNoPeriodo} Realiz. no Mês ({taxaConRealizadaNoPeriodo}%)` em conjunto com `[{statRealizada} Totais • {taxaConRealizada}%]`.
+* **Card Status Consultas**: Realçada a métrica de comparecimento dentro do próprio mês civil.
+
 ---
 
 ## 🚀 Melhorias Anteriores (26/09/2026)
