@@ -23,16 +23,18 @@ Sua arquitetura fullstack atual combina um frontend moderno em **React + Vite + 
 * Posicionado dentro da **Visão Geral**, logo abaixo dos 3 Ciclos sequenciais.
 * Exibição de taxas de comparecimento `{cons} ({realCons} Realiz. • {taxaRealiz}%)` em todos os cards e etapas do funil.
 
-### 4. Inteligência de Safra / Cohort (Vendas do Mês vs. Reativação)
-* Verificação com base real direta nas colunas da planilha (`s.date` da Coluna A, `s.leadDate` da Coluna G e `s.consultationDate` da Coluna M):
+### 4. Inteligência Completa: Safra do Mês + Ciclos Contínuos em Dias
+* Combinação de dois recortes estratégicos simultâneos no Funil Global:
   * **Etapa 2 (Consultas)**:
-    * `Lead do Mês`: Pacientes cuja data em que virou lead (Coluna G) é do mesmo mês calendário da venda.
-    * `+30 dias`: Leads originados no mês anterior (31 a 60 dias).
-    * `+60 dias`: Leads de meses anteriores (base fria / maturação longa).
+    * `Safra do Mês`: Pacientes cuja data do lead (Coluna G) é do mesmo mês civil da venda (safra nova pura).
+    * `≤ 30 dias`: Conversão rápida em até 30 dias desde o lead (ciclo comercial quente).
+    * `31-60 dias`: Conversão de ciclo médio.
+    * `+60 dias`: Reativação de base antiga / maturação longa.
   * **Etapa 3 (Procedimentos)**:
-    * `Consulta do Mês`: Pacientes cuja consulta médica (Coluna M) ocorreu no mesmo mês do fechamento.
-    * `+30 dias`: Consultas realizadas no mês anterior.
-    * `+60 dias`: Consultas realizadas há mais de 60 dias.
+    * `Consulta no Mês`: Pacientes cuja consulta médica (Coluna M) ocorreu no mesmo mês do fechamento.
+    * `≤ 30 dias`: Fechamento rápido em até 30 dias da consulta.
+    * `31-60 dias`: Fechamento entre 1 e 2 meses da consulta.
+    * `+60 dias`: Fechamento com mais de 2 meses após a consulta.
 
 ---
 
