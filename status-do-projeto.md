@@ -1,28 +1,30 @@
-# Status do Projeto - Dashboard Dr. Natalino Mazzillo - 06/10/2026
+# Status do Projeto - Dashboard Dr. Natalino Mazzillo - 07/10/2026
 
 Documento de controle de status, pendências, automações e melhorias estruturais do projeto.
 
 ---
 
-## 📌 Status Atual: Funil Cascata Global, Status de Procedimentos e Expurgo de Cancelamentos
+## 📌 Status Atual: Funil Cascata Global, Comparecimento no Mês, Expurgo de Cancelamentos e Cohort Dupla
 > [!NOTE]
 > **Consistência de Negócio e Visão Global da Operação**
-> 1. **Procedimentos Cancelados**: Descontados do faturamento líquido total e da evolução temporal, com medição da quantidade, taxa de cancelamento (%) e montante financeiro cancelado (R$).
-> 2. **Funil Cascata Global da Operação**: Implantado logo acima da evolução temporal (design inspirado no Simulador), consolidando o funil de toda a clínica de ponta a ponta.
-> 3. **Taxa de Comparecimento de Consultas**: Exibida em todos os cards do funil (`FunnelCard`) e detalhada no card de Status Consultas.
+> 1. **Procedimentos Cancelados**: 100% expurgados do faturamento líquido real e da evolução temporal, com acompanhamento de cancelamentos (%) e valor financeiro perdido (R$).
+> 2. **Funil Cascata Global da Operação**: Implantado logo acima da evolução temporal (design inspirado no Simulador de Metas), consolidando o funil de toda a clínica de ponta a ponta em 4 etapas (100%, 95%, 90% e 85%).
+> 3. **Taxa de Comparecimento no Mês vs. Acumulado**: Exibição da realização dentro do próprio mês civil da venda e do total acumulado com agendamentos futuros.
+> 4. **Análise de Safra Dupla**: Combinação de Safra do Mês (mês civil) + faixas contínuas de maturação ($\le 30$ dias, 31-60 dias, $> 60$ dias).
 
 ---
 
-## 🚀 Melhorias Realizadas na Sessão Atual (06/10/2026)
+## 🚀 Melhorias Realizadas na Sessão Atual (07/10/2026)
 
 ### 1. Gestão e Expurgo de Procedimentos Cancelados (Coluna K)
-* **Regra de Faturamento**: Procedimentos com status `"Cancelado"` ou `"Cancelado / Não Compareceu"` agora são expurgados do `total`, `totalProcedimento`, faturamentos segmentados e da curva diária da evolução temporal.
+* **Regra de Faturamento**: Procedimentos com status `"Cancelado"` ou `"Cancelado / Não Compareceu"` agora são 100% expurgados do `total`, `totalProcedimento`, filiais e da curva diária da evolução temporal.
 * **Métrica Financeira Perdida**: Contabilização do `revenueProcCancelado` (R$ financeiro perdido) e exibição em destaque com badge negativo.
 * **Taxa de Cancelamento**: Cálculo da proporção de cancelamentos sobre o total bruto de procedimentos.
 
-### 2. Novo Card "Status Procedimentos" e KPIs Simétricos
+### 2. Novo Card "Status Procedimentos" e KPIs Simétricos no Topo
 * Criação do card dedicado **"Status Procedimentos"** ao lado de Vendas Procedimentos: Realizado (%), Agendado (%) e Cancelado (%) com valor financeiro cancelado.
-* Atualização do card **"Status Consultas"** para incluir as porcentagens de Realizada (taxa de comparecimento), Agendada e Cancelada.
+* Atualização do card **"Status Consultas"** para incluir as porcentagens de Realizada (taxa de comparecimento), Agendada e Cancelada (com eventual valor perdido exibido).
+* **Alinhamento Uniforme**: Alinhamento à esquerda padronizado entre ambos os cards.
 * **Preservação dos Ciclos**: Mantida a sequência exata dos 3 cards de ciclo (`Lead > Consulta`, `Lead > Procedimento`, `Consulta > Procedimento`).
 
 ### 3. Taxa de Comparecimento nos Cards do Funil (`FunnelCard`)
@@ -33,12 +35,17 @@ Documento de controle de status, pendências, automações e melhorias estrutura
   * **1. Leads Totais (100%)**: Leads, Investimento Real (+12,15%) e CPL Real $\to$ Chevron de Conversão Lead $\to$ Consulta.
   * **2. Consultas (95%)**: Vendidas, Realizadas (% Comparecimento) e CPA Consulta $\to$ Chevron de Conversão Consulta $\to$ Procedimento.
   * **3. Procedimentos Válidos (90%)**: Vendas líquidas, Cancelados (% e R$ cancelado) e CPA Procedimento $\to$ Chevron de Ticket Médio.
-  * **4. Faturamento Líquido Real (85%)**: Faturamento Total e ROAS Consolidado da Operação.
+  * **4. Faturamento Líquido Real (85%)**: Faturamento Total expurgado e ROAS Consolidado da Operação.
 
 ### 5. Comparecimento no Próprio Período vs. Acumulado Total
 * **Visão Temporal Refinada**: Distinção clara entre consultas realizadas no próprio período selecionado (`statRealizadaNoPeriodo`) e consultas agendadas para meses posteriores (`statRealizadaFutura`).
 * **Etapa 2 do Funil**: Exibe `{statRealizadaNoPeriodo} Realiz. no Mês ({taxaConRealizadaNoPeriodo}%)` em conjunto com `[{statRealizada} Totais • {taxaConRealizada}%]`.
-* **Card Status Consultas**: Realçada a métrica de comparecimento dentro do próprio mês civil.
+* **Card Status Consultas**: Realçada a métrica de comparecimento dentro do próprio mês civil (`• {statRealizadaNoPeriodo} no mês`).
+* **Tratamento de Status**: Status como "Remarcou" agrupados com consultas agendadas/pendentes sem inflar indevidamente o contador de realizadas.
+
+### 6. Inteligência de Safra & Cohort Dupla Integrada
+* **Etapa 2 (Consultas)**: Exibe Safra do Mês civil (Lead do mesmo mês da venda) + faixas contínuas de $\le 30$ dias, 31-60 dias e $+60$ dias.
+* **Etapa 3 (Procedimentos)**: Exibe Safra de Consulta no Mês (Consulta realizada no mesmo mês do procedimento) + faixas contínuas de $\le 30$ dias, 31-60 dias e $+60$ dias.
 
 ---
 
