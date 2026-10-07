@@ -9,6 +9,9 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
     let procCF = 0, procBarra = 0;
     let dailyRevenue = {};
     let statRealizada = 0, statAgendada = 0, statCancelada = 0;
+    let statProcRealizada = 0, statProcAgendada = 0, statProcCancelada = 0;
+    let revenueProcCancelado = 0;
+    let cProTotal = 0;
 
     // Segmentações por gênero e local
     let conRJ_Mulher = 0, realConRJ_Mulher = 0, procRJ_Mulher = 0;
@@ -28,28 +31,33 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
     let procOnline_Mulher = 0, procOnline_Homem = 0;
 
     filteredSales.forEach(s => {
-        total += s.value;
-
-        let dateKey = s.date.substring(0, 10);
-        dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + s.value;
-
         const genderNorm = (s.gender || '').trim().toLowerCase();
         const isMulher = genderNorm === 'mulher';
         const isHomem = genderNorm === 'homem';
 
+        const st = (s.status || '').toLowerCase();
+        const isCancelado = st.includes('cancelad') || st.includes('não compareceu');
+        const isRealizada = st.includes('realizado') || st.includes('realizada');
+        const isAgendada = st.includes('agendad') || st.includes('a agendar');
+
+        let dateKey = s.date.substring(0, 10);
+
         if (s.type === 'Consulta') {
             cCon++;
             totalConsulta += s.value;
+            total += s.value;
+            dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + s.value;
+            if (!sourceStats[s.source]) sourceStats[s.source] = 0;
+            sourceStats[s.source] += s.value;
 
             if (s.location === 'Cabo Frio') conCF++;
             else if (s.location === 'Barra da Tijuca') conBarra++;
             else if (s.location === 'Online') conOnline++;
 
-            const st = (s.status || '').toLowerCase();
-            const isRealizada = st.includes('realizado') || st.includes('realizada');
             if (isRealizada) statRealizada++;
-            else if (st.includes('agendado') || st.includes('agendada')) statAgendada++;
-            else if (st.includes('cancelado') || st.includes('cancelada') || st.includes('não compareceu')) statCancelada++;
+            else if (isAgendada) statAgendada++;
+            else if (isCancelado) statCancelada++;
+            else statAgendada++;
 
             // Mapeia para a segmentação por gênero e unidade
             if (s.location === 'Cabo Frio') {
@@ -63,28 +71,42 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
                 else if (isHomem) { conOnline_Homem++; if (isRealizada) realConOnline_Homem++; revenueConOnline_Homem += s.value; }
             }
         } else {
-            cPro++;
-            totalProcedimento += s.value;
-            if (s.location === 'Cabo Frio') procCF++;
-            if (s.location === 'Barra da Tijuca') procBarra++;
+            // Procedimento
+            cProTotal++;
+            if (isCancelado) {
+                statProcCancelada++;
+                revenueProcCancelado += s.value;
+                // Cancelados NÃO somam em total, totalProcedimento, dailyRevenue nem sourceStats
+            } else {
+                cPro++;
+                totalProcedimento += s.value;
+                total += s.value;
+                dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + s.value;
+                if (!sourceStats[s.source]) sourceStats[s.source] = 0;
+                sourceStats[s.source] += s.value;
 
-            // Mapeia para a segmentação por gênero e unidade
-            if (s.location === 'Cabo Frio') {
-                if (isMulher) { procCF_Mulher++; revenueProcCF_Mulher += s.value; }
-                else if (isHomem) { procCF_Homem++; revenueProcCF_Homem += s.value; }
-            } else if (s.location === 'Barra da Tijuca') {
-                if (isMulher) { procRJ_Mulher++; revenueProcRJ_Mulher += s.value; }
-                else if (isHomem) { procRJ_Homem++; revenueProcRJ_Homem += s.value; }
-            } else if (s.location === 'Online') {
-                if (isMulher) { procOnline_Mulher++; revenueProcOnline_Mulher += s.value; }
-                else if (isHomem) { procOnline_Homem++; revenueProcOnline_Homem += s.value; }
+                if (isRealizada) statProcRealizada++;
+                else if (isAgendada) statProcAgendada++;
+                else statRealizada++; // default para confirmados/realizados
+
+                if (s.location === 'Cabo Frio') procCF++;
+                if (s.location === 'Barra da Tijuca') procBarra++;
+
+                // Mapeia para a segmentação por gênero e unidade
+                if (s.location === 'Cabo Frio') {
+                    if (isMulher) { procCF_Mulher++; revenueProcCF_Mulher += s.value; }
+                    else if (isHomem) { procCF_Homem++; revenueProcCF_Homem += s.value; }
+                } else if (s.location === 'Barra da Tijuca') {
+                    if (isMulher) { procRJ_Mulher++; revenueProcRJ_Mulher += s.value; }
+                    else if (isHomem) { procRJ_Homem++; revenueProcRJ_Homem += s.value; }
+                } else if (s.location === 'Online') {
+                    if (isMulher) { procOnline_Mulher++; revenueProcOnline_Mulher += s.value; }
+                    else if (isHomem) { procOnline_Homem++; revenueProcOnline_Homem += s.value; }
+                }
             }
         }
 
-        if (!sourceStats[s.source]) sourceStats[s.source] = 0;
-        sourceStats[s.source] += s.value;
-
-        if (s.leadDate && s.date) {
+        if (s.leadDate && s.date && (!isCancelado || s.type === 'Consulta')) {
             const dLead = new Date(s.leadDate.includes('T') ? s.leadDate.split('T')[0] : s.leadDate);
             const dSale = new Date(s.date.includes('T') ? s.date.split('T')[0] : s.date);
             const diffTime = Math.abs(dSale - dLead);
@@ -96,7 +118,7 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
             }
         }
 
-        if (s.type === 'Procedimento' && s.consultationDate && s.date) {
+        if (s.type === 'Procedimento' && !isCancelado && s.consultationDate && s.date) {
             const dCons = new Date(s.consultationDate.includes('T') ? s.consultationDate.split('T')[0] : s.consultationDate);
             const dSale = new Date(s.date.includes('T') ? s.date.split('T')[0] : s.date);
             const diffTimeCons = Math.abs(dSale - dCons);
@@ -159,6 +181,14 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
     const convConsultaParaProc = statRealizada > 0 ? ((cPro / statRealizada) * 100).toFixed(1) : '0';
     const rpl = totalLeadsCount > 0 ? (total / totalLeadsCount) : 0;
 
+    const taxaProcCancelamento = cProTotal > 0 ? ((statProcCancelada / cProTotal) * 100).toFixed(1) : '0';
+    const taxaProcRealizado = cProTotal > 0 ? ((statProcRealizada / cProTotal) * 100).toFixed(1) : '0';
+    const taxaProcAgendado = cProTotal > 0 ? ((statProcAgendada / cProTotal) * 100).toFixed(1) : '0';
+
+    const taxaConRealizada = cCon > 0 ? ((statRealizada / cCon) * 100).toFixed(1) : '0';
+    const taxaConAgendada = cCon > 0 ? ((statAgendada / cCon) * 100).toFixed(1) : '0';
+    const taxaConCancelada = cCon > 0 ? ((statCancelada / cCon) * 100).toFixed(1) : '0';
+
     // Métricas para IA
     const aiMetrics = {
         period: periodLabel || 'Período selecionado',
@@ -172,6 +202,10 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
         cplMedio: totalLeadsCount > 0 ? Number((totalInvestReal / totalLeadsCount).toFixed(2)) : null,
         consultasVendidas: Number(cCon) || 0,
         procedimentosVendidos: Number(cPro) || 0,
+        procedimentosCancelados: Number(statProcCancelada) || 0,
+        receitaCanceladaProcedimento: Number(revenueProcCancelado) || 0,
+        taxaCancelamentoProcedimento: Number(taxaProcCancelamento) || 0,
+        taxaComparecimentoConsulta: Number(taxaConRealizada) || 0,
         cpaConsulta: Number(cpaCon) || 0,
         cpaProcedimento: Number(cpaPro) || 0,
         leadsPorConsulta: cCon > 0 ? Number((totalLeadsCount / cCon).toFixed(2)) : null,
@@ -231,6 +265,10 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
         grouped, sourceStats, dailyRevenue,
         conCF, conBarra, conOnline, procCF, procBarra,
         statRealizada, statAgendada, statCancelada,
+        statProcRealizada, statProcAgendada, statProcCancelada,
+        cProTotal, revenueProcCancelado,
+        taxaProcCancelamento, taxaProcRealizado, taxaProcAgendado,
+        taxaConRealizada, taxaConAgendada, taxaConCancelada,
         avgCon, avgPro, avgConsToProc,
         totalInvestReal, taxAmount, totalInvest,
         metaInvestReal, googleInvestReal, metaCPL, googleCPL,
