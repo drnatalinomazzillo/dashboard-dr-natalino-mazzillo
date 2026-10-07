@@ -592,7 +592,12 @@ export default function AnalyticsTab() {
                                 </div>
                                 <div className="flex justify-between items-center text-[10px] font-bold">
                                     <span className="text-red-400">Cancelada</span>
-                                    <span className="text-white font-mono">{metrics.statCancelada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaConCancelada}%)</span></span>
+                                    <span className="text-white font-mono">
+                                        {metrics.statCancelada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaConCancelada}%)</span>
+                                        {metrics.revenueConCancelado > 0 && (
+                                            <span className="text-red-400 font-normal text-[9px] ml-1.5">• -{formatCurrency(metrics.revenueConCancelado)}</span>
+                                        )}
+                                    </span>
                                 </div>
                             </div>
 
@@ -627,7 +632,7 @@ export default function AnalyticsTab() {
                                     <span className="text-white font-mono">
                                         {metrics.statProcCancelada} <span className="text-gray-400 font-normal text-[9px]">({metrics.taxaProcCancelamento}%)</span>
                                         {metrics.revenueProcCancelado > 0 && (
-                                            <span className="text-red-400 font-normal text-[9px] ml-1.5">• {formatCurrency(metrics.revenueProcCancelado)}</span>
+                                            <span className="text-red-400 font-normal text-[9px] ml-1.5">• -{formatCurrency(metrics.revenueProcCancelado)}</span>
                                         )}
                                     </span>
                                 </div>
@@ -699,21 +704,49 @@ export default function AnalyticsTab() {
                             </div>
 
                             {/* Etapa 2: CONSULTAS (95% largura) */}
-                            <div className="w-full md:w-[95%] mx-auto bg-gradient-to-r from-purple-950/50 via-purple-900/20 to-black/40 border border-purple-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div className="w-full md:w-[95%] mx-auto bg-gradient-to-r from-purple-950/50 via-purple-900/20 to-black/40 border border-purple-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col justify-between gap-3">
                                 <div className="absolute top-0 left-0 w-2 h-full bg-purple-500"></div>
-                                <div className="text-center sm:text-left space-y-1">
-                                    <span className="text-xs text-purple-400 font-bold uppercase tracking-wider block">2. Consultas Agendadas & Realizadas</span>
-                                    <span className="text-xs text-gray-400 block">
-                                        CPA Consulta: <strong className="text-purple-300 font-mono text-sm">{formatCurrency(metrics.cpaCon)}</strong>
-                                        <span className="mx-2 text-gray-600">•</span>
-                                        Taxa Comparecimento: <strong className="text-emerald-400 font-mono text-sm">{metrics.statRealizada} Realizadas ({metrics.taxaConRealizada}%)</strong>
-                                    </span>
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div className="text-center sm:text-left space-y-1">
+                                        <span className="text-xs text-purple-400 font-bold uppercase tracking-wider block">2. Consultas Agendadas & Realizadas</span>
+                                        <span className="text-xs text-gray-400 block">
+                                            CPA Consulta: <strong className="text-purple-300 font-mono text-sm">{formatCurrency(metrics.cpaCon)}</strong>
+                                            <span className="mx-2 text-gray-600">•</span>
+                                            Taxa Comparecimento: <strong className="text-emerald-400 font-mono text-sm">{metrics.statRealizada} Realizadas ({metrics.taxaConRealizada}%)</strong>
+                                        </span>
+                                    </div>
+                                    <div className="text-center sm:text-right">
+                                        <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
+                                            {metrics.cCon} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Consultas</span>
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="text-center sm:text-right">
-                                    <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
-                                        {metrics.cCon} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Consultas</span>
-                                    </span>
-                                </div>
+
+                                {/* Safra / Origem do Lead (Lead ➔ Consulta) */}
+                                {metrics.cohortCon && metrics.cohortCon.totalComData > 0 && (
+                                    <div className="pt-2.5 border-t border-purple-500/20 flex flex-wrap items-center gap-2 text-xs">
+                                        <span className="text-[10px] text-purple-300 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
+                                            <i className="ph-bold ph-calendar-blank"></i> Safra do Lead:
+                                        </span>
+                                        <span className="bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Leads convertidos no mesmo mês ou em até 30 dias">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                            <span>Mês / ≤30d: <strong>{metrics.cohortCon.mes}</strong> ({metrics.cohortCon.mesPct}%)</span>
+                                        </span>
+                                        <span className="bg-blue-950/60 border border-blue-500/40 text-blue-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Leads convertidos entre 31 e 60 dias (Reativação recente)">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                            <span>+30 dias: <strong>{metrics.cohortCon.d30}</strong> ({metrics.cohortCon.d30Pct}%)</span>
+                                        </span>
+                                        <span className="bg-purple-950/60 border border-purple-500/40 text-purple-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Leads convertidos após 60 dias (Reativação de base antiga)">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                                            <span>+60 dias: <strong>{metrics.cohortCon.d60}</strong> ({metrics.cohortCon.d60Pct}%)</span>
+                                        </span>
+                                        {metrics.cohortCon.semData > 0 && (
+                                            <span className="text-[10px] text-gray-500 ml-auto font-mono">
+                                                ({metrics.cohortCon.semData} sem data lead)
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Chevron 2 */}
@@ -724,25 +757,53 @@ export default function AnalyticsTab() {
                             </div>
 
                             {/* Etapa 3: PROCEDIMENTOS (90% largura) */}
-                            <div className="w-full md:w-[90%] mx-auto bg-gradient-to-r from-pink-950/50 via-pink-900/20 to-black/40 border border-pink-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div className="w-full md:w-[90%] mx-auto bg-gradient-to-r from-pink-950/50 via-pink-900/20 to-black/40 border border-pink-500/30 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col justify-between gap-3">
                                 <div className="absolute top-0 left-0 w-2 h-full bg-pink-500"></div>
-                                <div className="text-center sm:text-left space-y-1">
-                                    <span className="text-xs text-pink-400 font-bold uppercase tracking-wider block">3. Procedimentos Vendidos (Válidos)</span>
-                                    <span className="text-xs text-gray-400 block">
-                                        CPA Procedimento: <strong className="text-pink-300 font-mono text-sm">{formatCurrency(metrics.cpaPro)}</strong>
-                                        {metrics.statProcCancelada > 0 && (
-                                            <>
-                                                <span className="mx-2 text-gray-600">•</span>
-                                                Cancelados: <strong className="text-red-400 font-mono text-xs">{metrics.statProcCancelada} ({metrics.taxaProcCancelamento}%) [-{formatCurrency(metrics.revenueProcCancelado)}]</strong>
-                                            </>
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <div className="text-center sm:text-left space-y-1">
+                                        <span className="text-xs text-pink-400 font-bold uppercase tracking-wider block">3. Procedimentos Vendidos (Válidos)</span>
+                                        <span className="text-xs text-gray-400 block">
+                                            CPA Procedimento: <strong className="text-pink-300 font-mono text-sm">{formatCurrency(metrics.cpaPro)}</strong>
+                                            {metrics.statProcCancelada > 0 && (
+                                                <>
+                                                    <span className="mx-2 text-gray-600">•</span>
+                                                    Cancelados: <strong className="text-red-400 font-mono text-xs">{metrics.statProcCancelada} ({metrics.taxaProcCancelamento}%) [-{formatCurrency(metrics.revenueProcCancelado)}]</strong>
+                                                </>
+                                            )}
+                                        </span>
+                                    </div>
+                                    <div className="text-center sm:text-right">
+                                        <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
+                                            {metrics.cPro} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Vendas</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Safra / Origem da Consulta ao Procedimento */}
+                                {metrics.cohortProcCons && metrics.cohortProcCons.totalComData > 0 && (
+                                    <div className="pt-2.5 border-t border-pink-500/20 flex flex-wrap items-center gap-2 text-xs">
+                                        <span className="text-[10px] text-pink-300 font-bold uppercase tracking-wider flex items-center gap-1 mr-1">
+                                            <i className="ph-bold ph-calendar-blank"></i> Da Consulta ao Fechamento:
+                                        </span>
+                                        <span className="bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos fechados no mesmo mês ou em até 30 dias após a consulta">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                            <span>Mês / ≤30d: <strong>{metrics.cohortProcCons.mes}</strong> ({metrics.cohortProcCons.mesPct}%)</span>
+                                        </span>
+                                        <span className="bg-blue-950/60 border border-blue-500/40 text-blue-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos fechados entre 31 e 60 dias após a consulta">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                            <span>+30 dias: <strong>{metrics.cohortProcCons.d30}</strong> ({metrics.cohortProcCons.d30Pct}%)</span>
+                                        </span>
+                                        <span className="bg-pink-950/60 border border-pink-500/40 text-pink-300 px-2.5 py-1 rounded-lg font-mono text-[11px] flex items-center gap-1.5 shadow-sm" title="Procedimentos fechados após 60 dias da consulta (Maturação longa)">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-pink-400"></span>
+                                            <span>+60 dias: <strong>{metrics.cohortProcCons.d60}</strong> ({metrics.cohortProcCons.d60Pct}%)</span>
+                                        </span>
+                                        {metrics.cohortProcCons.semData > 0 && (
+                                            <span className="text-[10px] text-gray-500 ml-auto font-mono">
+                                                ({metrics.cohortProcCons.semData} sem data consulta)
+                                            </span>
                                         )}
-                                    </span>
-                                </div>
-                                <div className="text-center sm:text-right">
-                                    <span className="text-3xl lg:text-4xl font-extrabold text-white font-mono tracking-tight">
-                                        {metrics.cPro} <span className="text-sm font-semibold text-gray-500 uppercase ml-1">Vendas</span>
-                                    </span>
-                                </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Chevron 3 */}

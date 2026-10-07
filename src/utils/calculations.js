@@ -11,7 +11,13 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
     let statRealizada = 0, statAgendada = 0, statCancelada = 0;
     let statProcRealizada = 0, statProcAgendada = 0, statProcCancelada = 0;
     let revenueProcCancelado = 0;
+    let revenueConCancelado = 0;
     let cProTotal = 0;
+
+    // Métricas de Safra / Cohort (Áudio 2 e 3)
+    let conCohortMes = 0, conCohort30 = 0, conCohort60 = 0, conCohortSemData = 0;
+    let procConsCohortMes = 0, procConsCohort30 = 0, procConsCohort60 = 0, procConsCohortSemData = 0;
+    let procLeadCohortMes = 0, procLeadCohort30 = 0, procLeadCohort60 = 0, procLeadCohortSemData = 0;
 
     // Segmentações por gênero e local
     let conRJ_Mulher = 0, realConRJ_Mulher = 0, procRJ_Mulher = 0;
@@ -44,38 +50,42 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
 
         if (s.type === 'Consulta') {
             cCon++;
-            totalConsulta += s.value;
-            total += s.value;
-            dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + s.value;
-            if (!sourceStats[s.source]) sourceStats[s.source] = 0;
-            sourceStats[s.source] += s.value;
+            if (isCancelado) {
+                statCancelada++;
+                revenueConCancelado += (Number(s.value) || 0);
+            } else {
+                totalConsulta += s.value;
+                total += s.value;
+                dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + s.value;
+                if (!sourceStats[s.source]) sourceStats[s.source] = 0;
+                sourceStats[s.source] += s.value;
 
-            if (s.location === 'Cabo Frio') conCF++;
-            else if (s.location === 'Barra da Tijuca') conBarra++;
-            else if (s.location === 'Online') conOnline++;
+                if (isRealizada) statRealizada++;
+                else if (isAgendada) statAgendada++;
+                else statRealizada++;
 
-            if (isRealizada) statRealizada++;
-            else if (isAgendada) statAgendada++;
-            else if (isCancelado) statCancelada++;
-            else statAgendada++;
+                if (s.location === 'Cabo Frio') conCF++;
+                else if (s.location === 'Barra da Tijuca') conBarra++;
+                else if (s.location === 'Online') conOnline++;
 
-            // Mapeia para a segmentação por gênero e unidade
-            if (s.location === 'Cabo Frio') {
-                if (isMulher) { conCF_Mulher++; if (isRealizada) realConCF_Mulher++; revenueConCF_Mulher += s.value; }
-                else if (isHomem) { conCF_Homem++; if (isRealizada) realConCF_Homem++; revenueConCF_Homem += s.value; }
-            } else if (s.location === 'Barra da Tijuca') {
-                if (isMulher) { conRJ_Mulher++; if (isRealizada) realConRJ_Mulher++; revenueConRJ_Mulher += s.value; }
-                else if (isHomem) { conRJ_Homem++; if (isRealizada) realConRJ_Homem++; revenueConRJ_Homem += s.value; }
-            } else if (s.location === 'Online') {
-                if (isMulher) { conOnline_Mulher++; if (isRealizada) realConOnline_Mulher++; revenueConOnline_Mulher += s.value; }
-                else if (isHomem) { conOnline_Homem++; if (isRealizada) realConOnline_Homem++; revenueConOnline_Homem += s.value; }
+                // Mapeia para a segmentação por gênero e unidade
+                if (s.location === 'Cabo Frio') {
+                    if (isMulher) { conCF_Mulher++; if (isRealizada) realConCF_Mulher++; revenueConCF_Mulher += s.value; }
+                    else if (isHomem) { conCF_Homem++; if (isRealizada) realConCF_Homem++; revenueConCF_Homem += s.value; }
+                } else if (s.location === 'Barra da Tijuca') {
+                    if (isMulher) { conRJ_Mulher++; if (isRealizada) realConRJ_Mulher++; revenueConRJ_Mulher += s.value; }
+                    else if (isHomem) { conRJ_Homem++; if (isRealizada) realConRJ_Homem++; revenueConRJ_Homem += s.value; }
+                } else if (s.location === 'Online') {
+                    if (isMulher) { conOnline_Mulher++; if (isRealizada) realConOnline_Mulher++; revenueConOnline_Mulher += s.value; }
+                    else if (isHomem) { conOnline_Homem++; if (isRealizada) realConOnline_Homem++; revenueConOnline_Homem += s.value; }
+                }
             }
         } else {
             // Procedimento
             cProTotal++;
             if (isCancelado) {
                 statProcCancelada++;
-                revenueProcCancelado += s.value;
+                revenueProcCancelado += (Number(s.value) || 0);
                 // Cancelados NÃO somam em total, totalProcedimento, dailyRevenue nem sourceStats
             } else {
                 cPro++;
@@ -106,25 +116,83 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
             }
         }
 
-        if (s.leadDate && s.date && (!isCancelado || s.type === 'Consulta')) {
-            const dLead = new Date(s.leadDate.includes('T') ? s.leadDate.split('T')[0] : s.leadDate);
-            const dSale = new Date(s.date.includes('T') ? s.date.split('T')[0] : s.date);
-            const diffTime = Math.abs(dSale - dLead);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        // Análise de Ciclo & Safra de Consultas (Lead ➔ Consulta)
+        if (s.type === 'Consulta' && s.date) {
+            if (s.leadDate) {
+                const dLeadStr = s.leadDate.includes('T') ? s.leadDate.split('T')[0] : s.leadDate;
+                const dSaleStr = s.date.includes('T') ? s.date.split('T')[0] : s.date;
+                const dLead = new Date(dLeadStr);
+                const dSale = new Date(dSaleStr);
+                const diffTime = dSale - dLead;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const isSameMonth = dLeadStr.substring(0, 7) === dSaleStr.substring(0, 7);
 
-            if (diffDays >= 0) {
-                if (s.type === 'Consulta') timesConsulta.push(diffDays);
-                else timesProc.push(diffDays);
+                if (!isNaN(diffDays) && diffDays >= 0) {
+                    timesConsulta.push(diffDays);
+                }
+
+                if (diffDays <= 30 || isSameMonth) {
+                    conCohortMes++;
+                } else if (diffDays <= 60) {
+                    conCohort30++;
+                } else {
+                    conCohort60++;
+                }
+            } else {
+                conCohortSemData++;
             }
         }
 
-        if (s.type === 'Procedimento' && !isCancelado && s.consultationDate && s.date) {
-            const dCons = new Date(s.consultationDate.includes('T') ? s.consultationDate.split('T')[0] : s.consultationDate);
-            const dSale = new Date(s.date.includes('T') ? s.date.split('T')[0] : s.date);
-            const diffTimeCons = Math.abs(dSale - dCons);
-            const diffDaysCons = Math.ceil(diffTimeCons / (1000 * 60 * 60 * 24));
-            if (diffDaysCons >= 0) {
-                timesConsToProc.push(diffDaysCons);
+        // Análise de Ciclo & Safra de Procedimentos (válidos)
+        if (s.type === 'Procedimento' && !isCancelado && s.date) {
+            // Ciclo & Safra do Lead ➔ Procedimento
+            if (s.leadDate) {
+                const dLeadStr = s.leadDate.includes('T') ? s.leadDate.split('T')[0] : s.leadDate;
+                const dSaleStr = s.date.includes('T') ? s.date.split('T')[0] : s.date;
+                const dLead = new Date(dLeadStr);
+                const dSale = new Date(dSaleStr);
+                const diffTime = dSale - dLead;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const isSameMonth = dLeadStr.substring(0, 7) === dSaleStr.substring(0, 7);
+
+                if (!isNaN(diffDays) && diffDays >= 0) {
+                    timesProc.push(diffDays);
+                }
+
+                if (diffDays <= 30 || isSameMonth) {
+                    procLeadCohortMes++;
+                } else if (diffDays <= 60) {
+                    procLeadCohort30++;
+                } else {
+                    procLeadCohort60++;
+                }
+            } else {
+                procLeadCohortSemData++;
+            }
+
+            // Ciclo & Safra da Consulta ➔ Procedimento
+            if (s.consultationDate) {
+                const dConsStr = s.consultationDate.includes('T') ? s.consultationDate.split('T')[0] : s.consultationDate;
+                const dSaleStr = s.date.includes('T') ? s.date.split('T')[0] : s.date;
+                const dCons = new Date(dConsStr);
+                const dSale = new Date(dSaleStr);
+                const diffTimeCons = dSale - dCons;
+                const diffDaysCons = Math.ceil(diffTimeCons / (1000 * 60 * 60 * 24));
+                const isSameMonthCons = dConsStr.substring(0, 7) === dSaleStr.substring(0, 7);
+
+                if (!isNaN(diffDaysCons) && diffDaysCons >= 0) {
+                    timesConsToProc.push(diffDaysCons);
+                }
+
+                if (diffDaysCons <= 30 || isSameMonthCons) {
+                    procConsCohortMes++;
+                } else if (diffDaysCons <= 60) {
+                    procConsCohort30++;
+                } else {
+                    procConsCohort60++;
+                }
+            } else {
+                procConsCohortSemData++;
             }
         }
     });
@@ -260,16 +328,54 @@ export function calculateMetrics(filteredSales, marketingData, periodLabel) {
         revenueConOnline_Homem: Number(revenueConOnline_Homem) || 0
     };
 
+    // Consolidação de Safras / Cohort (Áudio 2 e 3)
+    const totalConComData = conCohortMes + conCohort30 + conCohort60;
+    const cohortCon = {
+        mes: conCohortMes,
+        mesPct: totalConComData > 0 ? ((conCohortMes / totalConComData) * 100).toFixed(1) : '0.0',
+        d30: conCohort30,
+        d30Pct: totalConComData > 0 ? ((conCohort30 / totalConComData) * 100).toFixed(1) : '0.0',
+        d60: conCohort60,
+        d60Pct: totalConComData > 0 ? ((conCohort60 / totalConComData) * 100).toFixed(1) : '0.0',
+        semData: conCohortSemData,
+        totalComData: totalConComData
+    };
+
+    const totalProcConsComData = procConsCohortMes + procConsCohort30 + procConsCohort60;
+    const cohortProcCons = {
+        mes: procConsCohortMes,
+        mesPct: totalProcConsComData > 0 ? ((procConsCohortMes / totalProcConsComData) * 100).toFixed(1) : '0.0',
+        d30: procConsCohort30,
+        d30Pct: totalProcConsComData > 0 ? ((procConsCohort30 / totalProcConsComData) * 100).toFixed(1) : '0.0',
+        d60: procConsCohort60,
+        d60Pct: totalProcConsComData > 0 ? ((procConsCohort60 / totalProcConsComData) * 100).toFixed(1) : '0.0',
+        semData: procConsCohortSemData,
+        totalComData: totalProcConsComData
+    };
+
+    const totalProcLeadComData = procLeadCohortMes + procLeadCohort30 + procLeadCohort60;
+    const cohortProcLead = {
+        mes: procLeadCohortMes,
+        mesPct: totalProcLeadComData > 0 ? ((procLeadCohortMes / totalProcLeadComData) * 100).toFixed(1) : '0.0',
+        d30: procLeadCohort30,
+        d30Pct: totalProcLeadComData > 0 ? ((procLeadCohort30 / totalProcLeadComData) * 100).toFixed(1) : '0.0',
+        d60: procLeadCohort60,
+        d60Pct: totalProcLeadComData > 0 ? ((procLeadCohort60 / totalProcLeadComData) * 100).toFixed(1) : '0.0',
+        semData: procLeadCohortSemData,
+        totalComData: totalProcLeadComData
+    };
+
     return {
         total, totalConsulta, totalProcedimento, cCon, cPro,
         grouped, sourceStats, dailyRevenue,
         conCF, conBarra, conOnline, procCF, procBarra,
         statRealizada, statAgendada, statCancelada,
         statProcRealizada, statProcAgendada, statProcCancelada,
-        cProTotal, revenueProcCancelado,
+        cProTotal, revenueProcCancelado, revenueConCancelado,
         taxaProcCancelamento, taxaProcRealizado, taxaProcAgendado,
         taxaConRealizada, taxaConAgendada, taxaConCancelada,
         avgCon, avgPro, avgConsToProc,
+        cohortCon, cohortProcCons, cohortProcLead,
         totalInvestReal, taxAmount, totalInvest,
         metaInvestReal, googleInvestReal, metaCPL, googleCPL,
         metaLeads, googleLeads, totalLeadsCount,
