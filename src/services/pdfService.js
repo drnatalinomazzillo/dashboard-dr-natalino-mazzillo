@@ -42,7 +42,7 @@ export function exportAIReport(metrics, aiHTML, showToast) {
 
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px;">
         <tr style="background:rgba(59,130,246,0.08);">
-            <td style="padding:10px 14px;border:1px solid #1e293b;font-weight:700;color:#94a3b8;">Faturamento Total</td>
+            <td style="padding:10px 14px;border:1px solid #1e293b;font-weight:700;color:#94a3b8;">Volume Total de Vendas</td>
             <td style="padding:10px 14px;border:1px solid #1e293b;font-weight:700;color:#34d399;font-size:14px;">${fmt(m.faturamentoTotal)}</td>
             <td style="padding:10px 14px;border:1px solid #1e293b;font-weight:700;color:#94a3b8;">Investimento Total</td>
             <td style="padding:10px 14px;border:1px solid #1e293b;color:#f97316;">${fmt(m.investimentoTotal)}</td>
@@ -98,7 +98,7 @@ export function exportAIReport(metrics, aiHTML, showToast) {
         <tr style="background:rgba(59,130,246,0.08);">
             <td style="padding:10px 14px;border:1px solid #1e293b;font-weight:700;color:#94a3b8;">Consultas Realizadas p/ Proc</td>
             <td style="padding:10px 14px;border:1px solid #1e293b;color:white;">${m.consultasPorProcedimento || '--'}</td>
-            <td style="padding:10px 14px;border:1px solid #1e293b;font-weight:700;color:#94a3b8;">Ticket Médio (Faturamento)</td>
+            <td style="padding:10px 14px;border:1px solid #1e293b;font-weight:700;color:#94a3b8;">Ticket Médio (Volume de Vendas)</td>
             <td style="padding:10px 14px;border:1px solid #1e293b;color:white;">${m.faturamentoTotal && m.consultasVendidas ? fmt(m.faturamentoTotal / (m.consultasVendidas + m.procedimentosVendidos)) : '--'}</td>
         </tr>
     </table>

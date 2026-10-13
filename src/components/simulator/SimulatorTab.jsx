@@ -304,7 +304,7 @@ export default function SimulatorTab() {
                             <div className="w-full md:w-[85%] mx-auto bg-gradient-to-r from-emerald-950/30 via-emerald-900/10 to-black/40 border border-emerald-500/30 p-6 md:p-7 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
                                 <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500"></div>
                                 <div className="text-center sm:text-left space-y-1">
-                                    <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider block">4. Faturamento Estimado</span>
+                                    <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider block">4. Volume de Vendas Estimado</span>
                                     <span className="text-xs text-gray-400 block">ROAS Projetado: <strong className="text-emerald-300 font-mono text-sm">{roasProjetado.toFixed(1)}x</strong></span>
                                 </div>
                                 <div className="text-center sm:text-right">

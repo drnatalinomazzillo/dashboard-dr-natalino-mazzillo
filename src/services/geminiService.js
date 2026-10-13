@@ -53,7 +53,7 @@ Todos os dados abaixo são reais, consolidados e confiáveis.
 ---
 
 ## 📊 VISÃO FINANCEIRA
-- Faturamento Total: **R$ ${fmt(m.faturamentoTotal)}**
+- Volume Total de Vendas: **R$ ${fmt(m.faturamentoTotal)}**
 - Investimento Total em Marketing: **R$ ${fmt(m.investimentoTotal)}**
 - ROAS Consulta: **${m.roasConsulta !== null ? m.roasConsulta + 'x' : 'N/D'}**
 - ROAS Procedimento: **${m.roasProcedimento !== null ? m.roasProcedimento + 'x' : 'N/D'}**

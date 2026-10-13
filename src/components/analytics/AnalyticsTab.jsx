@@ -261,7 +261,7 @@ function FunnelCard({ title, icon, borderColor, iconColor, bgHeaderClass, leads,
 
             <div className="bg-black/40 p-3 rounded-lg border border-emerald-900/30 bg-gradient-to-br from-emerald-950/10 to-transparent">
                 <div className="flex justify-between items-end mb-1">
-                    <p className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">4. Faturamento</p>
+                    <p className="text-[10px] text-emerald-400 uppercase tracking-wider font-bold">4. Volume de Vendas</p>
                     <span className="text-[10px] text-gray-500 font-mono">ROAS: <span className="text-emerald-400 font-bold">{roas.toFixed(1)}x</span></span>
                 </div>
                 <h4 className="text-2xl font-bold text-emerald-400 font-mono">{formatCurrency(totalRevenue)}</h4>
@@ -371,7 +371,7 @@ export default function AnalyticsTab() {
             const top5 = Object.keys(grouped).sort((a, b) => grouped[b].value - grouped[a].value).slice(0, 5);
             chartInstances.current.tags = new Chart(tagsChartRef.current.getContext('2d'), {
                 type: 'bar',
-                data: { labels: top5, datasets: [{ label: 'Faturamento', data: top5.map(t => grouped[t].value), backgroundColor: 'rgba(59, 130, 246, 0.8)', borderRadius: 4 }] },
+                data: { labels: top5, datasets: [{ label: 'Volume de Vendas', data: top5.map(t => grouped[t].value), backgroundColor: 'rgba(59, 130, 246, 0.8)', borderRadius: 4 }] },
                 options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 45, minRotation: 45 } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => formatCurrency(ctx.raw) } } } }
             });
         }
@@ -551,7 +551,7 @@ export default function AnalyticsTab() {
                         <div className="lg:col-span-5 glass-panel p-5 rounded-xl border-t-4 border-blue-500 clickable-card relative overflow-hidden flex flex-col md:flex-row gap-4 justify-between" onClick={() => filterByType('all')}>
                             <div className="relative z-10 flex flex-col justify-between h-full w-full md:w-1/2">
                                 <div>
-                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Faturamento Líquido Total</p>
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1 font-bold">Volume Total de Vendas</p>
                                     <h3 className="text-3xl lg:text-4xl font-bold text-white">{formatCurrency(metrics.total)}</h3>
                                 </div>
                                 <div className="mt-auto bg-black/40 p-3 rounded-lg border border-green-500/30 self-start md:mt-0 mt-4">
@@ -843,7 +843,7 @@ export default function AnalyticsTab() {
                             <div className="w-full md:w-[85%] mx-auto bg-gradient-to-r from-emerald-950/40 via-emerald-900/15 to-black/50 border border-emerald-500/40 p-5 md:p-6 rounded-2xl shadow-lg relative overflow-hidden flex flex-col sm:flex-row justify-between items-center gap-4">
                                 <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500"></div>
                                 <div className="text-center sm:text-left space-y-1">
-                                    <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider block">4. Faturamento Líquido Real</span>
+                                    <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider block">4. Volume de Vendas</span>
                                     <span className="text-xs text-gray-400 block">
                                         ROAS Consolidado: <strong className="text-emerald-300 font-mono text-sm">{metrics.totalInvestReal > 0 ? (metrics.total / metrics.totalInvestReal).toFixed(1) + 'x' : '--'}</strong>
                                         <span className="mx-2 text-gray-600">•</span>
@@ -862,7 +862,7 @@ export default function AnalyticsTab() {
 
                     {/* CHARTS */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-0">
-                        <div className="glass-panel p-4 rounded-xl"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Faturamento por Origem</h4><div className="h-40 relative"><canvas ref={sourceChartRef}></canvas></div></div>
+                        <div className="glass-panel p-4 rounded-xl"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Volume de Vendas por Origem</h4><div className="h-40 relative"><canvas ref={sourceChartRef}></canvas></div></div>
                         <div className="glass-panel p-4 rounded-xl"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Top 5 Criativos (R$)</h4><div className="h-40 relative"><canvas ref={tagsChartRef}></canvas></div></div>
                     </div>
 
@@ -1099,7 +1099,7 @@ export default function AnalyticsTab() {
                                 <div>
                                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Evolução Temporal: Tráfego, Funil e Retorno</h3>
                                     <p className="text-[10px] text-gray-400">
-                                        Tráfego em barras na base (R$) • Faturamento no topo (R$) • Funil de Vendas em linhas
+                                        Tráfego em barras na base (R$) • Volume de Vendas no topo (R$) • Funil de Vendas em linhas
                                     </p>
                                 </div>
                             </div>
@@ -1129,7 +1129,7 @@ export default function AnalyticsTab() {
                         <div className="flex flex-wrap items-center gap-1.5 mb-3">
                             <span className="text-[10px] uppercase font-bold text-gray-500 mr-1">Métricas:</span>
                             {[
-                                { key: 'faturamento', label: 'Faturamento', color: '#34d399', border: 'border-emerald-500/40', text: 'text-emerald-300', bg: 'bg-emerald-500/15' },
+                                { key: 'faturamento', label: 'Volume de Vendas', color: '#34d399', border: 'border-emerald-500/40', text: 'text-emerald-300', bg: 'bg-emerald-500/15' },
                                 { key: 'investimento', label: 'Tráfego', color: '#38bdf8', border: 'border-sky-500/40', text: 'text-sky-300', bg: 'bg-sky-500/15' },
                                 { key: 'leads', label: 'Leads', color: '#fbbf24', border: 'border-amber-500/40', text: 'text-amber-300', bg: 'bg-amber-500/15' },
                                 { key: 'consultas', label: 'Consultas', color: '#f472b6', border: 'border-pink-500/40', text: 'text-pink-300', bg: 'bg-pink-500/15' },
@@ -1217,8 +1217,8 @@ export default function AnalyticsTab() {
                                                     labelStyle={{ color: '#9ca3af', marginBottom: '8px', fontWeight: 'bold' }}
                                                     formatter={(value, name, item) => {
                                                         const p = item.payload;
-                                                        if (name === 'Faturamento') {
-                                                            return [formatCurrency(p.Faturamento), name];
+                                                        if (name === 'Faturamento' || name === 'Volume de Vendas') {
+                                                            return [formatCurrency(p.Faturamento), 'Volume de Vendas'];
                                                         }
                                                         if (name === 'Tráfego') {
                                                             return [formatCurrency(p.Investimento), name];
@@ -1264,13 +1264,13 @@ export default function AnalyticsTab() {
                                                     </Bar>
                                                 )}
 
-                                                {/* 2. Faturamento como LINHA Marcante no Topo (50% a 95%) */}
+                                                {/* 2. Volume de Vendas como LINHA Marcante no Topo (50% a 95%) */}
                                                 {visibleLines.faturamento && (
                                                     <Line 
                                                         yAxisId="revenue" 
                                                         type="monotone" 
                                                         dataKey="Faturamento" 
-                                                        name="Faturamento" 
+                                                        name="Volume de Vendas" 
                                                         stroke="#34d399" 
                                                         strokeWidth={3} 
                                                         dot={{ r: 4, fill: '#111827', stroke: '#34d399', strokeWidth: 2 }} 
