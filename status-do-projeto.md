@@ -1,20 +1,36 @@
-# Status do Projeto - Dashboard Dr. Natalino Mazzillo - 07/10/2026
+# Status do Projeto - Dashboard Dr. Natalino Mazzillo - 13/10/2026
 
 Documento de controle de status, pendências, automações e melhorias estruturais do projeto.
 
 ---
 
-## 📌 Status Atual: Funil Cascata Global, Comparecimento no Mês, Expurgo de Cancelamentos e Cohort Dupla
+## 📌 Status Atual: Volume Total de Vendas, Funil Cascata Global, Comparecimento no Mês e Maturação
 > [!NOTE]
-> **Consistência de Negócio e Visão Global da Operação**
-> 1. **Procedimentos Cancelados**: 100% expurgados do faturamento líquido real e da evolução temporal, com acompanhamento de cancelamentos (%) e valor financeiro perdido (R$).
-> 2. **Funil Cascata Global da Operação**: Implantado logo acima da evolução temporal (design inspirado no Simulador de Metas), consolidando o funil de toda a clínica de ponta a ponta em 4 etapas (100%, 95%, 90% e 85%).
-> 3. **Taxa de Comparecimento no Mês vs. Acumulado**: Exibição da realização dentro do próprio mês civil da venda e do total acumulado com agendamentos futuros.
-> 4. **Análise de Safra Dupla**: Combinação de Safra do Mês (mês civil) + faixas contínuas de maturação ($\le 30$ dias, 31-60 dias, $> 60$ dias).
+> **Consistência de Negócio e Nomenclatura Comercial Fidedigna**
+> 1. **Volume Total de Vendas**: Substituição do termo "Faturamento Líquido Total" por **"Volume Total de Vendas"** (e "Volume de Vendas" no Funil e Matriz 3x3), refletindo com exatidão que o valor acordado em contratos de cirurgias/procedimentos representa venda contratada, cuja liquidação financeira pode ocorrer ao longo do tempo ou perto da cirurgia.
+> 2. **Procedimentos Cancelados**: 100% expurgados do volume de vendas real e da evolução temporal, com acompanhamento de cancelamentos (%) e valor financeiro perdido (R$).
+> 3. **Funil Cascata Global da Operação**: Implantado logo acima da evolução temporal (design inspirado no Simulador de Metas), consolidando o funil de toda a clínica de ponta a ponta em 4 etapas (100%, 95%, 90% e 85%).
+> 4. **Taxa de Comparecimento no Mês vs. Acumulado**: Exibição da realização dentro do próprio mês civil da venda e do total acumulado com agendamentos futuros.
+> 5. **Análise de Safra Dupla & Maturação**: Combinação de Safra do Mês (mês civil) + faixas contínuas de maturação ($\le 30$ dias, 31-60 dias, $> 60$ dias), explicando cenários como o de Cabo Frio Homens onde vendas de procedimentos em um mês decorrem de consultas de safras anteriores.
 
 ---
 
-## 🚀 Melhorias Realizadas na Sessão Atual (07/10/2026)
+## 🚀 Melhorias Realizadas na Sessão Atual (13/10/2026)
+
+### 1. Ajuste de Nomenclatura: Faturamento ➔ Volume Total de Vendas
+* **Alinhamento Conceitual**: Como procedimentos médicos representam vendas de propostas/contratos que nem sempre possuem liquidação de caixa imediata (ao contrário de consultas), todos os pontos da tela de Resultados foram padronizados para **"Volume Total de Vendas"** e **"Volume de Vendas"**.
+* **Locais Atualizados**:
+  * **Card Principal do Topo**: `Volume Total de Vendas`.
+  * **Etapa 4 do Funil Cascata Global**: `4. Volume de Vendas`.
+  * **Matriz de Conversão Cruzada 3x3 (`FunnelCard`)**: `4. Volume de Vendas`.
+  * **Card de Origem**: `Volume de Vendas por Origem`.
+  * **Gráfico de Evolução Temporal (`ComposedChart`)**: Subtítulo, legenda, botão seletor de linha e tooltip atualizados para `Volume de Vendas`.
+  * **Simulador de Metas (`SimulatorTab.jsx`)**: `4. Volume de Vendas Estimado`.
+  * **Serviços de Exportação e IA (`pdfService.js`, `geminiService.js`)**: Tabelas e prompts alinhados com `Volume Total de Vendas`.
+
+---
+
+## 🚀 Melhorias Realizadas na Sessão Anterior (07/10/2026)
 
 ### 1. Gestão e Expurgo de Procedimentos Cancelados (Coluna K)
 * **Regra de Faturamento**: Procedimentos com status `"Cancelado"` ou `"Cancelado / Não Compareceu"` agora são 100% expurgados do `total`, `totalProcedimento`, filiais e da curva diária da evolução temporal.

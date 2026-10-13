@@ -12,12 +12,12 @@ Sistema de gestão estratégica, inteligência analítica de vendas, acompanhame
   * **Etapa 1 - Leads Totais**: Leads captados, Investimento Real corrigido (+12,15%) e CPL Real $\to$ Chevron com taxa de conversão Lead ➔ Consulta.
   * **Etapa 2 - Consultas Agendadas & Realizadas**: Total de consultas vendidas, CPA Consulta, Taxa de Comparecimento no próprio mês (`statRealizadaNoPeriodo`) e Total Acumulado (`statRealizada`) $\to$ Chevron com conversão Consulta ➔ Procedimento.
   * **Etapa 3 - Procedimentos Válidos**: Vendas líquidas, CPA Procedimento, medição de cancelamentos (% e R$ cancelado) $\to$ Chevron com Ticket Médio.
-  * **Etapa 4 - Faturamento Líquido Real**: Faturamento Total expurgado e ROAS Consolidado da Operação.
+  * **Etapa 4 - Volume de Vendas**: Volume Total de Vendas expurgado e ROAS Consolidado da Operação.
 * **Inteligência de Safra & Maturação Dupla**:
   * **Safra do Mês**: Pacientes cujo lead (Coluna G) ou consulta médica (Coluna M) pertence ao mesmo mês civil do fechamento.
   * **Ciclo Contínuo em Dias**: Faixas objetivas de ciclo rápido ($\le 30$ dias), ciclo médio (31 a 60 dias) e ciclo longo/reativação ($> 60$ dias), permitindo leitura de maturação mesmo em filtros amplos ou anuais.
 * **Gestão e Expurgo Rigoroso de Cancelamentos (Coluna K)**:
-  * Procedimentos cancelados ou não comparecidos são 100% expurgados da receita líquida, preservando o faturamento real sem inflação.
+  * Procedimentos cancelados ou não comparecidos são 100% expurgados da receita líquida, preservando o volume real sem inflação.
   * Contabilização dedicada de quantidade, taxa percentual de cancelamento e receita cancelada (R$).
 * **Cards de Status Simétricos no Topo**:
   * **Status Consultas**: Realizada (com destaque de quantas foram no próprio mês), Agendada e Cancelada (com eventual valor financeiro cancelado).
@@ -25,7 +25,7 @@ Sistema de gestão estratégica, inteligência analítica de vendas, acompanhame
 * **Matriz de Conversão Cruzada 3x3**: Acompanhamento de leads, consultas (com taxa de comparecimento), procedimentos, ticket médio e ROAS segmentados por unidade (Cabo Frio, Barra da Tijuca, Online) e gênero (Mulher, Homem, Agregado).
 * **Gráfico de Evolução Temporal Híbrido (`ComposedChart`)**:
   * **Tráfego em Barras**: Investimento em anúncios plotado na base com calibragem proporcional zero-padding e alíquota fiscal (+12,15%).
-  * **Faturamento Prioritário**: Linha de destaque no topo (50% a 95% do gráfico) sem sobreposição visual.
+  * **Volume de Vendas Prioritário**: Linha de destaque no topo (50% a 95% do gráfico) sem sobreposição visual.
   * **Funil em Múltiplos Eixos**: Leads na faixa intermediária e Consultas/Procedimentos/CPL em eixo secundário sem compressão.
   * **Rótulos Numéricos (`LabelList`)**: Exibição dos valores sobre pontos e barras com botão seletor (*toggle switch*) ON / OFF.
   * **Filtros Dinâmicos**: Seletores por período (mês, ano, personalizado), unidade, tipo e métricas ativáveis individualmente.

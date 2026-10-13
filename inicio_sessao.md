@@ -7,7 +7,25 @@ Sua arquitetura fullstack atual combina um frontend moderno em **React + Vite + 
 
 ---
 
-## 🛠️ O que foi realizado na sessão atual (07/10/2026)
+## 🛠️ O que foi realizado na sessão atual (13/10/2026)
+
+### 1. Nomenclatura Comercial Fidedigna: "Volume Total de Vendas"
+* **Motivação de Negócio**: Como procedimentos médicos representam o fechamento de propostas/contratos que nem sempre possuem liquidação de caixa imediata (ao contrário de consultas), todos os pontos da tela de Resultados foram padronizados para **"Volume Total de Vendas"** e **"Volume de Vendas"**.
+* **Pontos Atualizados**:
+  * Card Principal do Topo: `Volume Total de Vendas`
+  * Etapa 4 do Funil Cascata Global: `4. Volume de Vendas`
+  * Matriz 3x3 de Conversão Cruzada (`FunnelCard`): `4. Volume de Vendas`
+  * Gráfico de Origem: `Volume de Vendas por Origem`
+  * Gráfico de Evolução Temporal (`ComposedChart`): Subtítulo, legenda, toggle de métricas e tooltips atualizados para `Volume de Vendas`.
+  * Simulador de Metas: `4. Volume de Vendas Estimado`.
+  * Exportação PDF e Resumo de IA: Tabelas e prompts alinhados com `Volume Total de Vendas`.
+
+### 2. Validação Analítica de Maturação do Funil (Caso Cabo Frio Homens)
+* Validada a regra de negócio para casos onde procedimentos fechados no mês superam consultas vendidas no mesmo período: os dados de fechamento consideram a data da venda (`sale.date`), enquanto a consulta ou lead original foram maturados em meses anteriores.
+
+---
+
+## 🛠️ Sessão Anterior (07/10/2026)
 
 ### 1. Gestão e Expurgo de Procedimentos e Consultas Cancelados (Coluna K)
 * **Regra de Faturamento**: Procedimentos com status `"Cancelado"` ou `"Cancelado / Não Compareceu"` são 100% expurgados do faturamento líquido total (`total`), `totalProcedimento`, filiais e curva diária.
